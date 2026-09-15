@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zo werkt scouting — demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#EEF1F5;--paper:#fff;--ink:#101B33;--mute:#5C6780;--line:#D5DAE3;--court:#EF8A3A;--zone:#2456B8;--ok:#1F8A4C;--warn:#B3261E}
+  *{box-sizing:border-box}
+  body{margin:0;background:#0F1626;color:var(--ink);font:14px/1.4 Barlow,system-ui,sans-serif;min-height:100vh;display:grid;place-items:center;padding:16px}
+  .stage{width:min(1080px,100%);display:grid;gap:10px}
+  .titlebar{display:flex;justify-content:space-between;align-items:center;color:#fff}
+  .titlebar h1{font:700 26px "Barlow Condensed";margin:0}
+  .chapters{display:flex;gap:6px}
+  .chapters button{background:transparent;border:1px solid #3A4766;color:#B9C2D6;padding:6px 10px;border-radius:6px;font:600 13px Barlow;cursor:pointer}
+  .chapters button.on{background:var(--zone);border-color:var(--zone);color:#fff}
+  .app{background:var(--bg);border-radius:12px;padding:14px;display:grid;grid-template-columns:1fr 320px;gap:12px;min-height:520px;position:relative;overflow:hidden}
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px}
+  h2{font:700 20px "Barlow Condensed";margin:0 0 8px}
+  h3{font:500 15px "Barlow Condensed";margin:8px 0 4px;color:var(--mute)}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .btn{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:7px 10px;font:inherit;flex:1 1 auto;text-align:center;transition:all .15s;position:relative}
+  .btn.on{background:var(--zone);color:#fff;border-color:var(--zone)}
+  .btn.us{background:var(--ok);color:#fff;border-color:var(--ok)}.btn.them{background:var(--warn);color:#fff;border-color:var(--warn)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.press{transform:scale(.94);box-shadow:0 0 0 4px rgba(36,86,184,.35)}
+  kbd{background:#eee;border:1px solid #ccc;border-radius:3px;padding:0 4px;font-size:11px;color:var(--ink)}
+  .hint{font-size:12px;color:var(--mute)}
+  .court{background:var(--zone);padding:6px;border-radius:8px;margin:4px 0}
+  .floor{background:var(--court);border:2px solid #fff;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr}
+  .cell{border:1px solid rgba(255,255,255,.6);min-height:46px;text-align:center;color:#fff;font:700 17px "Barlow Condensed";padding:16px 2px 4px;position:relative;transition:background .2s}
+  .cell small{position:absolute;left:4px;top:2px;font-size:10px;opacity:.9}
+  .cell.sel{background:rgba(255,255,255,.35);outline:3px solid #fff;outline-offset:-3px}
+  .cell.lib{background:rgba(255,255,255,.18)}
+  .cell.bump{animation:bump .5s}
+  @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .state{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center}
+  .score{font:700 34px "Barlow Condensed";transition:transform .2s}
+  .score.bump{animation:bump .4s}
+  .log{font-size:13px;max-height:180px;overflow:hidden;border:1px solid var(--line);border-radius:6px}
+  .log div{padding:4px 8px;border-bottom:1px solid var(--line);display:flex;gap:6px;animation:slidein .3s}
+  .log div.rally{background:#F3F6FC;font-weight:600}
+  .log .t{color:var(--mute);min-width:40px}
+  @keyframes slidein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .cursor{position:absolute;width:22px;height:22px;pointer-events:none;z-index:5;transition:left .45s cubic-bezier(.4,0,.2,1),top .45s cubic-bezier(.4,0,.2,1);opacity:0}
+  .cursor svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+  .caption{background:#fff;border-radius:10px;padding:12px 16px;min-height:56px;display:flex;align-items:center;gap:14px}
+  .caption .n{font:700 22px "Barlow Condensed";color:var(--zone);min-width:28px}
+  .caption p{margin:0;font-size:15px}
+  .controls{display:flex;gap:8px;align-items:center;color:#B9C2D6;font-size:13px}
+  .controls button{background:#1C2640;border:1px solid #3A4766;color:#fff;padding:8px 14px;border-radius:6px;font:600 14px Barlow;cursor:pointer}
+  .bar{flex:1;height:6px;background:#1C2640;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--zone);width:0;transition:width .3s}
+  .overlay{position:absolute;inset:0;background:rgba(255,255,255,.96);display:grid;place-items:center;text-align:center;padding:24px;z-index:4;animation:slidein .3s}
+  .overlay h2{font-size:34px}.overlay p{max-width:520px;color:var(--mute);font-size:16px}
+  .ff{position:absolute;inset:0;background:rgba(16,27,51,.85);color:#fff;display:grid;place-items:center;z-index:4;text-align:center}
+  .ff .big{font:700 64px "Barlow Condensed";letter-spacing:.02em}
+  .ff .sets{display:flex;gap:14px;justify-content:center;margin-top:10px;font:600 22px "Barlow Condensed"}
+  .ff .sets span{padding:6px 12px;border:1px solid #fff5;border-radius:8px}.ff .sets span.w{background:var(--ok);border-color:var(--ok)}.ff .sets span.l{background:var(--warn);border-color:var(--warn)}
+  .ff .cnt{margin-top:14px;font-size:15px;color:#B9C2D6}
+  table.rep{border-collapse:collapse;width:100%;font-size:12px}
+  .rep th,.rep td{border:1px solid #ccc;padding:3px 5px;text-align:right}.rep th:first-child,.rep td:first-child{text-align:left}.rep th{background:#eee}
+  .rep tr.good td{background:#E3F4E9}.rep tr.bad td{background:#FBE7E5}
+  .report{display:grid;grid-template-columns:1fr 1fr;gap:12px;grid-column:1/-1}
+  .arrows{display:flex;gap:10px;flex-wrap:wrap}.arrows div{text-align:center;font-size:12px}
+  .setup .field{display:grid;grid-template-columns:110px 1fr;gap:6px;align-items:center;margin:4px 0}
+  .setup input{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;width:100%}
+  .typing:after{content:"|";animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:0}}
+  .fade{animation:slidein .4s}
+  @media(max-width:820px){.app{grid-template-columns:1fr}.report{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="titlebar"><h1>Zo werkt scouting in de app</h1>
+    <div class="chapters"><button data-ch="0">1 · Instellen</button><button data-ch="1">2 · Eerste punten</button><button data-ch="2">3 · Hele wedstrijd</button><button data-ch="3">4 · Resultaat</button></div></div>
+  <div class="app" id="app"><div class="cursor" id="cursor"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9-7 2-3 8z" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg></div></div>
+  <div class="caption"><span class="n" id="capn">1</span><p id="cap">…</p></div>
+  <div class="controls"><button id="play">⏸ Pauze</button><button id="restart">↺ Opnieuw</button><span>Snelheid</span><button id="speed">1×</button><div class="bar"><i id="prog"></i></div><span id="stepno"></span></div>
+</div>
+
+<script>
+// ---------- gegevens
+const TEAM='VNK Dames A',OPP='Gierle';
+const P={1:'Lien',3:'Sara',5:'Emma',7:'Noor',8:'Lotte',10:'Fien',12:'Julie',14:'Hanne'};
+const POS=['IV','III','II','V','VI','I'];const R=[5,4,3,0,1,2];const Z2D={1:5,2:2,3:1,4:0,5:3,6:4};const D2Z={5:1,2:2,1:3,0:4,3:5,4:6};
+const dispIndex=(rot,k)=>R[(R.indexOf(k)+rot)%6],baseIndex=(rot,d)=>R[(R.indexOf(d)-rot+6)%6];
+let S;
+function reset(){S={setup:false,pos:[1,3,5,7,8,10],lib:14,libFor:8,us:0,them:0,serve:'them',rot:0,pending:{team:null,act:null,zone:null},log:[],opp:['?','?','?','?','?','?'],oppRot:0,set:1,sets:[]}}
+const app=document.getElementById('app');const $=s=>app.querySelector(s);
+function playerAt(zone){const k=baseIndex(S.rot,Z2D[zone]);const nr=S.pos[k];if([1,5,6].includes(zone)&&nr===S.libFor)return{nr:S.lib,lib:true};return{nr}}
+function oppAt(zone){const k=baseIndex(S.oppRot,Z2D[zone]);const idx=[5,2,1,0,3,4].indexOf(k);return S.opp[idx]}
+
+// ---------- schermen
+function courtHtml(team){return `<div class="court"><div class="floor">${POS.map((lbl,d)=>{const z=D2Z[d];const p=team==='us'?playerAt(z):{nr:oppAt(z)};const sel=S.pending.zone===z&&S.pending.team===team;
+  return `<div class="cell ${sel?'sel':''} ${p.lib?'lib':''}" data-z="${z}" data-team="${team}"><small>${lbl} · z${z}</small>${p.nr}</div>`}).join('')}</div></div>`}
+function scoutScreen(){
+  const p=S.pending;const act=a=>`<span class="btn ${p.act===a?'on':''}" data-act="${a}">${a}</span>`;
+  app.innerHTML=`<div class="cursor" id="cursor"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9-7 2-3 8z" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+  <div class="panel">
+    <div class="row"><span class="btn" style="flex:2">${S.sets.length?'':''}12/09/26 · ${OPP}</span><span class="btn">Video: wedstrijd.mp4</span><span class="btn">Statistieken</span><span class="btn">Rapport (PDF)</span></div>
+    <div style="background:#000;border-radius:8px;height:110px;display:grid;place-items:center;color:#889;font:600 14px Barlow" id="video">▶︎ video · <span id="vt">0:00</span></div>
+    <h3>1. Wie</h3><div class="row"><span class="btn ${p.team==='us'?'on':''}" data-team="us">${TEAM}</span><span class="btn ${p.team==='them'?'on':''}" data-team="them">${OPP}</span></div>
+    <h3>2. Actie</h3><div class="row">${act('opslag')}${act('receptie')}${act('pas')}${act('aanval')}${act('blok')}${act('verdediging')}</div>
+    <h3>3. Zone: tik op het veld · 4. Kwaliteit</h3><div class="row">${['#','+','!','-','/','='].map(q=>`<span class="btn" data-q="${q}" style="font-weight:700;font-size:17px">${q}</span>`).join('')}</div>
+    <div class="hint" id="pend">Volgende tag: …</div>
+    <div class="row"><span class="btn us" data-pt="us">Punt ${TEAM} <kbd>Q</kbd></span><span class="btn them" data-pt="them">Punt ${OPP} <kbd>E</kbd></span><span class="btn">↶ Ongedaan <kbd>Z</kbd></span></div>
+    <div class="log" id="log">${S.log.slice().reverse().map(l=>`<div class="${l.r?'rally':''}"><span class="t">${l.t}</span>${l.txt}</div>`).join('')}</div>
+  </div>
+  <div class="panel">
+    <div class="state"><div><h2>${TEAM}</h2><div class="score" id="scUs">${S.us}</div></div><div><h2>${OPP}</h2><div class="score" id="scThem">${S.them}</div></div></div>
+    <div class="hint" style="text-align:center">Set ${S.set} · Opslag: <b>${S.serve==='us'?TEAM:OPP}</b></div>
+    <h2 style="margin-top:8px">${TEAM} <span class="hint">rotatie ${S.rot}</span></h2>${courtHtml('us')}
+    <div class="hint">Libero 14 staat in voor 8 Lotte</div>
+    <h2 style="margin-top:8px">${OPP} <span class="hint">${S.opp.filter(x=>x!=='?').length}/6 servers</span></h2>${courtHtml('them')}
+  </div>`;
+  updatePend();
+}
+function updatePend(){const p=S.pending;const el=$('#pend');if(el)el.textContent=`Volgende tag: ${p.team?(p.team==='us'?TEAM:OPP):'…'} · ${p.act||'…'} · zone ${p.zone||'…'}`}
+function addLog(txt,r){S.log.push({t:vt(),txt,r});const el=$('#log');if(el){const d=document.createElement('div');d.className=r?'rally':'';d.innerHTML=`<span class="t">${vt()}</span>${txt}`;el.prepend(d)}}
+let vsec=0;const vt=()=>`${Math.floor(vsec/60)}:${String(Math.floor(vsec%60)).padStart(2,'0')}`;
+
+// ---------- cursor & klik
+function elCenter(sel){const e=$(sel);if(!e)return null;const a=app.getBoundingClientRect(),b=e.getBoundingClientRect();return{x:b.left-a.left+b.width/2,y:b.top-a.top+b.height/2,e}}
+async function click(sel,hold=260){const c=elCenter(sel);if(!c)return;const cur=$('#cursor');cur.style.opacity=1;cur.style.left=(c.x-4)+'px';cur.style.top=(c.y-2)+'px';await wait(480);c.e.classList.add('press');await wait(hold);c.e.classList.remove('press')}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));let speed=1,paused=false,abort=false;
+async function wait(ms){let t=0;while(t<ms){if(abort)throw'abort';if(!paused){await sleep(40);t+=40*speed}else await sleep(80)}}
+
+// ---------- tag-acties
+async function tag(team,act,zone,q,who){
+  S.pending={team,act:null,zone:null};await click(`[data-team="${team}"]`);S.pending.team=team;$(`[data-team="${team}"]`).classList.add('on');updatePend();
+  await click(`[data-act="${act}"]`);S.pending.act=act;app.querySelectorAll('[data-act]').forEach(e=>e.classList.toggle('on',e.dataset.act===act));updatePend();
+  await click(`.cell[data-team="${team}"][data-z="${zone}"]`);S.pending.zone=zone;$(`.cell[data-team="${team}"][data-z="${zone}"]`).classList.add('sel');updatePend();
+  await click(`[data-q="${q}"]`);
+  const pl=team==='us'?playerAt(zone):{nr:who||oppAt(zone)};
+  if(team==='them'&&act==='opslag'&&who){const k=baseIndex(S.oppRot,Z2D[1]);const idx=[5,2,1,0,3,4].indexOf(k);if(S.opp[idx]==='?')S.opp[idx]=who}
+  addLog(`${team==='us'?TEAM:OPP} · ${act} z${zone} ${q} · <b>#${pl.nr}</b>${pl.lib?' (L)':''}`);
+  S.pending={team,act:null,zone:null};scoutScreen();vsec+=3;$('#vt').textContent=vt();
+}
+async function point(team){
+  await click(`[data-pt="${team}"]`);
+  if(team==='us'){S.us++;if(S.serve==='them'){S.serve='us';S.rot=(S.rot+1)%6}}else{S.them++;if(S.serve==='us'){S.serve='them';S.oppRot=(S.oppRot+1)%6}}
+  addLog(`Punt ${team==='us'?TEAM:OPP} → ${S.us}-${S.them}`,true);S.pending={team:null,act:null,zone:null};scoutScreen();
+  $(team==='us'?'#scUs':'#scThem').classList.add('bump');app.querySelectorAll('.cell[data-team="us"]').forEach(c=>c.classList.add('bump'));vsec+=8;
+}
+
+// ---------- hoofdstukken
+function caption(n,txt){document.getElementById('capn').textContent=n;document.getElementById('cap').textContent=txt}
+async function typeInto(sel,txt){const e=$(sel);e.classList.add('typing');e.value='';for(const ch of txt){e.value+=ch;await wait(55)}e.classList.remove('typing')}
+
+async function ch1(){
+  reset();caption(1,'Alles begint bij het tabblad Wedstrijd: tegenstander, datum en de startopstelling per set. Dat vul je op de bank al in.');
+  app.innerHTML=`<div class="cursor" id="cursor"></div><div class="panel setup" style="grid-column:1/-1;max-width:640px;margin:0 auto;width:100%">
+    <h2>Wedstrijd</h2><div class="field"><label>Tegenstander</label><input id="f1"></div><div class="field"><label>Datum</label><input id="f2" value="12/09/2026"></div>
+    <div class="field"><label>Thuis / Uit</label><div class="row" style="margin:0"><span class="btn on">Thuis</span><span class="btn">Uit</span></div></div>
+    <h3>Set 1 — startopstelling</h3><div id="lineup"></div><div class="row"><span class="btn primary" id="lock" style="flex:0 0 auto">Opstelling bevestigen</span><span class="hint" id="lh">Vul eerst alle zes posities in</span></div></div>`;
+  $('#cursor').innerHTML='<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9-7 2-3 8z" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+  await wait(600);await typeInto('#f1',OPP);await wait(400);
+  caption(1,'De zes startposities kies je uit je spelerslijst. I is de server, IV–III–II staan aan het net.');
+  const lu=$('#lineup');const tmp=[...S.pos];S.pos=['','','','','',''];
+  lu.innerHTML=`<div class="court"><div class="floor">${POS.map((lbl,d)=>`<div class="cell" data-team="us" data-z="${D2Z[d]}" data-d="${d}"><small>${lbl}</small><span>–</span></div>`).join('')}</div></div>`;
+  for(const d of [5,2,1,0,3,4]){await click(`.cell[data-d="${d}"]`,120);S.pos[d]=tmp[d];const c=$(`.cell[data-d="${d}"]`);c.querySelector('span').textContent=`${tmp[d]} ${P[tmp[d]]}`;c.classList.add('bump');await wait(150)}
+  $('#lh').textContent='';await click('#lock');$('#lock').textContent='✓ Opstelling bevestigd';await wait(900);
+  caption(1,'Libero 14 Hanne speelt in voor 8 Lotte zodra die achteraan staat. Dat weet de app, dus dat hoef je straks niet te taggen.');await wait(2200);
+  caption(1,'Na de wedstrijd open je het tabblad Scout, kiest de wedstrijd en de video. Alles wat je op de bank invulde, staat klaar.');
+  scoutScreen();await wait(2600);
+}
+async function ch2(){
+  if(!S||S.log.length)reset();scoutScreen();
+  caption(2,'Elke tag is vier tikken: wie → actie → zone → kwaliteit. De speler vult de app zelf in, uit de rotatie.');await wait(1800);
+  caption(2,'Gierle serveert. Bij hun opslag vraagt de app het rugnummer: #9. Na zes servers kent de app hun hele rotatie.');
+  await tag('them','opslag',1,'+','9');
+  caption(2,'Receptie in zone 6. Daar hoort 8 Lotte te staan, maar zij staat achteraan — dus vult de app de libero in: 14 Hanne (L).');
+  await tag('us','receptie',6,'+');
+  caption(2,'Aanval uit zone 4 door 1 Lien, kwaliteit # = punt. Daarna: Punt VNK.');
+  await tag('us','aanval',4,'#');
+  await point('us');
+  caption(2,'Side-out: VNK won op de opslag van Gierle en draait één positie door. Kijk naar het veld — iedereen schuift op, Fien serveert nu.');await wait(2400);
+  // rally 2: we serve
+  await tag('us','opslag',1,'!');
+  caption(2,'Gierle ontvangt en valt aan. Wat je van hen tagt, kies je zelf; opslag, receptie en aanval volstaan voor een goed beeld.');
+  await tag('them','receptie',5,'+','4');await tag('them','aanval',4,'#','4');
+  await point('them');
+  caption(2,'Gierle wint op onze opslag: zij draaien door, wij niet. Stand 1-1.');await wait(1500);
+  // rally 3
+  await tag('them','opslag',1,'=','4');
+  caption(2,'Opslagfout van Gierle. Alleen "Punt VNK" tikken volstaat; de app weet wie er serveerde.');await point('us');
+  // rallies 4-10 sneller
+  const seq=[
+    ['us','opslag',1,'+'],['them','receptie',6,'-','?'],['them','aanval',2,'=','?'],['pt','us'],
+    ['us','opslag',1,'='],['pt','them'],
+    ['them','opslag',1,'+','6'],['us','receptie',5,'!'],['us','aanval',3,'/'],['pt','them'],
+    ['them','opslag',1,'!','6'],['us','receptie',6,'+'],['us','aanval',2,'#'],['pt','us'],
+    ['us','opslag',1,'#'],['pt','us'],
+    ['us','opslag',1,'+'],['them','aanval',4,'-','?'],['us','verdediging',5,'+'],['us','aanval',4,'#'],['pt','us'],
+    ['us','opslag',1,'!'],['them','aanval',3,'#','?'],['pt','them']];
+  caption(2,'Zo gaat het door, rally na rally. Ongeveer 20 minuten per set als je beide ploegen tagt.');speed*=1.6;
+  for(const s of seq){if(s[0]==='pt')await point(s[1]);else await tag(s[0],s[1],s[2],s[3],s[4]==='?'?undefined:s[4])}
+  speed/=1.6;caption(2,`Na tien rallies: ${S.us}-${S.them}. Het log spoelt de video naar elk moment; een fout tik je weg met Ongedaan.`);await wait(2800);
+}
+async function ch3(){
+  if(!S)reset();scoutScreen();
+  caption(3,'Sets 2, 3 en 4 gaan op dezelfde manier. We spoelen door…');
+  const target=[[25,21],[23,25],[25,18],[25,20]];
+  const ff=document.createElement('div');ff.className='ff';ff.innerHTML=`<div><div class="big" id="ffs">0–0</div><div class="sets" id="ffsets"></div><div class="cnt" id="ffc">Set 1</div></div>`;app.appendChild(ff);
+  S.sets=[];let tags=S.log.filter(l=>!l.r).length;
+  for(let si=0;si<4;si++){const [a,b]=target[si];let u=si===0?S.us:0,t=si===0?S.them:0;$('#ffc').textContent=`Set ${si+1}`;
+    while(u<a||t<b){const usW=(u<a)&&(t>=b||Math.random()<a/(a+b));if(usW)u++;else t++;tags+=1+Math.floor(Math.random()*3);$('#ffs').textContent=`${u}–${t}`;$('#ffc').textContent=`Set ${si+1} · ${tags} tags`;await wait(28)}
+    S.sets.push([u,t]);$('#ffsets').innerHTML=S.sets.map(([x,y])=>`<span class="${x>y?'w':'l'}">${x}-${y}</span>`).join('');await wait(700)}
+  const w=S.sets.filter(([x,y])=>x>y).length,l=4-w;$('#ffs').textContent=`${w}–${l}`;$('#ffc').textContent=`Wedstrijd gewonnen · ${tags} tags · alles automatisch bewaard`;
+  caption(3,`Klaar: ${w}–${l} gewonnen (${S.sets.map(s=>s.join('-')).join(', ')}). Elke tag staat in de database, gedeeld met je collega-coaches.`);await wait(3200);
+}
+async function ch4(){
+  if(!S||!S.sets.length){reset();S.sets=[[25,21],[23,25],[25,18],[25,20]]}
+  caption(4,'Statistieken en het rapport verschijnen meteen. Eerst de totalen per speelster…');
+  app.innerHTML=`<div class="cursor" id="cursor"></div><div class="report fade">
+    <div class="panel"><h2>${TEAM} — totalen</h2><table class="rep"><tr><th>Speler</th><th>Opsl</th><th>Ace</th><th>Rec</th><th>Rec+</th><th>Aanv</th><th>Kill</th><th>Eff</th></tr>
+      <tr><td>1 Lien</td><td>14</td><td>2</td><td>31</td><td>58%</td><td>38</td><td>17</td><td>34%</td></tr>
+      <tr><td>3 Sara</td><td>13</td><td>1</td><td>—</td><td></td><td>21</td><td>9</td><td>29%</td></tr>
+      <tr><td>5 Emma</td><td>15</td><td>3</td><td>—</td><td></td><td>9</td><td>2</td><td>0%</td></tr>
+      <tr><td>7 Noor</td><td>12</td><td>1</td><td>28</td><td>46%</td><td>33</td><td>12</td><td>21%</td></tr>
+      <tr class="bad"><td>8 Lotte</td><td>11</td><td>0</td><td>—</td><td></td><td>18</td><td>6</td><td>6%</td></tr>
+      <tr><td>10 Fien</td><td>14</td><td>2</td><td>—</td><td></td><td>22</td><td>10</td><td>32%</td></tr>
+      <tr class="good"><td>14 Hanne (L)</td><td></td><td></td><td>44</td><td>64%</td><td></td><td></td><td></td></tr></table>
+      <div class="hint" style="margin-top:6px">Hanne (libero) ontvangt 64% positief — sterk. Lotte's aanval rendeert niet: 6 kills, 5 fouten.</div></div>
+    <div class="panel"><h2>Side-out per rotatie</h2><table class="rep" id="rot"><tr><th>Rot</th><th>Server</th><th>Ontv</th><th>SO</th><th>SO%</th><th>Serv</th><th>Break%</th></tr>
+      <tr><td>R1</td><td>10 Fien</td><td>17</td><td>11</td><td>65%</td><td>15</td><td>40%</td></tr>
+      <tr><td>R2</td><td>5 Emma</td><td>18</td><td>12</td><td>67%</td><td>16</td><td>44%</td></tr>
+      <tr class="bad"><td>R3</td><td>3 Sara</td><td>19</td><td>7</td><td>37%</td><td>12</td><td>25%</td></tr>
+      <tr><td>R4</td><td>1 Lien</td><td>16</td><td>10</td><td>63%</td><td>14</td><td>36%</td></tr>
+      <tr><td>R5</td><td>7 Noor</td><td>17</td><td>10</td><td>59%</td><td>13</td><td>31%</td></tr>
+      <tr class="good"><td>R6</td><td>8 Lotte</td><td>15</td><td>11</td><td>73%</td><td>14</td><td>43%</td></tr></table>
+      <div class="hint" style="margin-top:6px">Rotatie 3 lekt: 37% side-out. Daar staat Emma voor met twee aanvallers en zit Noor naast een zwakke receptiehoek. Eerste trainingsonderwerp.</div></div>
+    <div class="panel" style="grid-column:1/-1"><h2>Aanvalsrichtingen</h2><div class="arrows" id="arr"></div><div class="hint">Groen = punt, grijs = in spel, rood = fout. Lien slaat bijna alleen diagonaal — dat weet het blok van de tegenstander over drie wedstrijden ook.</div></div>
+  </div>`;
+  const ZC={us:{4:[20,130],3:[60,130],2:[100,130]},them:{2:[20,70],3:[60,70],4:[100,70],1:[20,25],6:[60,25],5:[100,25]}};const COL={'#':'#1F8A4C','!':'#5C6780','+':'#5C6780','=':'#B3261E'};
+  const mk=(nr,dirs)=>`<div><b>${nr} ${P[nr]}</b><br><svg viewBox="0 0 120 200" width="100" height="166"><defs><marker id="a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#333"/></marker></defs><rect x="1" y="1" width="118" height="198" fill="#FBE7D3" stroke="#333"/><line x1="1" y1="100" x2="119" y2="100" stroke="#000" stroke-width="3"/><line x1="1" y1="50" x2="119" y2="50" stroke="#999" stroke-dasharray="3 2"/><line x1="1" y1="150" x2="119" y2="150" stroke="#999" stroke-dasharray="3 2"/>${dirs.map(([f,t,q])=>`<line x1="${ZC.us[f][0]}" y1="${ZC.us[f][1]}" x2="${ZC.them[t][0]+(Math.random()*14-7)}" y2="${ZC.them[t][1]+(Math.random()*10-5)}" stroke="${COL[q]}" stroke-width="1.6" marker-end="url(#a)" opacity=".85"/>`).join('')}</svg></div>`;
+  const rnd=(f,ts,qs,n)=>Array.from({length:n},()=>[f,ts[Math.floor(Math.random()*ts.length)],qs[Math.floor(Math.random()*qs.length)]]);
+  $('#arr').innerHTML=mk(1,rnd(4,[5,1,6],['#','#','!','='],12))+mk(7,rnd(2,[5,4,6,1],['#','!','!','='],10))+mk(3,rnd(3,[6,1,5],['#','!','='],8))+mk(10,rnd(4,[1,5,6,4],['#','!'],9));
+  await wait(3500);caption(4,'…dan side-out per rotatie: rotatie 3 is het probleem, niet één speelster. Dat zie je nooit met alleen individuele cijfers.');
+  $('#rot').scrollIntoView({block:'nearest'});await wait(3800);
+  caption(4,'En de aanvalsrichtingen per speelster. Alles als PDF voor de kleedkamer, of als CSV naar Excel. Tot de volgende wedstrijd — dan staat de rotatie van Gierle al klaar.');await wait(4200);
+}
+const chapters=[ch1,ch2,ch3,ch4];let current=0,running=false;
+async function run(from){abort=true;await sleep(120);abort=false;running=true;
+  try{for(let i=from;i<chapters.length;i++){current=i;document.querySelectorAll('.chapters button').forEach(b=>b.classList.toggle('on',+b.dataset.ch===i));document.getElementById('prog').style.width=(i/chapters.length*100)+'%';document.getElementById('stepno').textContent=`${i+1} / ${chapters.length}`;
+    if(i===0)reset();if(i===1&&(!S||S.setup===false)){/* keep */}await chapters[i]();}
+    document.getElementById('prog').style.width='100%';caption('✓','Einde van de demo. Klik op een hoofdstuk om een deel opnieuw te bekijken.');}
+  catch(e){if(e!=='abort')console.error(e)}running=false}
+document.querySelectorAll('.chapters button').forEach(b=>b.onclick=()=>{paused=false;document.getElementById('play').textContent='⏸ Pauze';if(+b.dataset.ch>=2&&(!S||!S.log.length)){reset();S.us=6;S.them=4;S.rot=2;S.opp=['9','4','6','?','?','?']}run(+b.dataset.ch)});
+document.getElementById('play').onclick=e=>{paused=!paused;e.target.textContent=paused?'▶︎ Verder':'⏸ Pauze'};
+document.getElementById('restart').onclick=()=>{paused=false;document.getElementById('play').textContent='⏸ Pauze';run(0)};
+document.getElementById('speed').onclick=e=>{speed=speed===1?1.7:speed===1.7?2.6:1;e.target.textContent=speed+'×'};
+run(0);
+</script>
+</body>
+</html>
