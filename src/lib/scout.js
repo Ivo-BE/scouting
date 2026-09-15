@@ -116,3 +116,21 @@ export const Q_LABELS = {
 }
 // welke zones zijn zinvol per actie (null = alle zes)
 export const ZONES_FOR = { opslag: [1], receptie: [1, 5, 6], pas: null, aanval: null, blok: [2, 3, 4], verdediging: [1, 5, 6] }
+
+// --- slim taggen: wat volgt logisch op deze tag?
+//   {point:'us'|'them'}          rally is beslist, punt toekennen
+//   {askBlock:true}              aanval geblokt: vraag welke blokker, dan punt voor de andere ploeg
+//   {pending:{team,act,zone}}    volgende tag klaarzetten (zone null = speler nog te kiezen)
+export function nextStep(e) {
+  const other = e.team === 'us' ? 'them' : 'us', q = e.q
+  switch (e.act) {
+    case 'opslag':      return q === '#' ? { point: e.team } : q === '=' ? { point: other } : { pending: { team: other, act: 'receptie', zone: null } }
+    case 'receptie':
+    case 'pas':
+    case 'verdediging': return q === '=' ? { point: other } : { pending: { team: e.team, act: 'aanval', zone: null } }
+    case 'aanval':      return q === '#' ? { point: e.team } : q === '=' ? { point: other } : q === '/' ? { askBlock: true } : { pending: { team: other, act: 'verdediging', zone: null } }
+    case 'blok':        return q === '#' ? { point: e.team } : q === '=' ? { point: other } : { pending: { team: null, act: 'verdediging', zone: null } }
+  }
+  return {}
+}
+export const serveStep = serve => ({ team: serve, act: 'opslag', zone: 1 })

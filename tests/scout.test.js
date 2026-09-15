@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -37,4 +37,14 @@ test('side-out per rotatie', () => {
   assert.deepEqual([rows[1].serve, rows[1].brk], [2, 1])
   assert.deepEqual([rows[1].recv, rows[1].so], [1, 0])
   assert.equal(rows[0].server, '10')
+})
+
+test('slim taggen: volgende stap uit de laatste tag', () => {
+  assert.deepEqual(nextStep({ team: 'us', act: 'opslag', q: '#' }), { point: 'us' })
+  assert.deepEqual(nextStep({ team: 'us', act: 'opslag', q: '=' }), { point: 'them' })
+  assert.deepEqual(nextStep({ team: 'us', act: 'opslag', q: '+' }), { pending: { team: 'them', act: 'receptie', zone: null } })
+  assert.deepEqual(nextStep({ team: 'them', act: 'receptie', q: '+' }), { pending: { team: 'them', act: 'aanval', zone: null } })
+  assert.deepEqual(nextStep({ team: 'them', act: 'aanval', q: '/' }), { askBlock: true })
+  assert.deepEqual(nextStep({ team: 'them', act: 'aanval', q: '!' }), { pending: { team: 'us', act: 'verdediging', zone: null } })
+  assert.deepEqual(nextStep({ team: 'us', act: 'blok', q: '#' }), { point: 'us' })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { POS } from '../lib/volley.js'
-import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
+import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
 import { reportHtml } from './ScoutReport.js'
 import Modal from './Modal.jsx'
 
@@ -18,9 +18,12 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const [videoName, setVideoName] = useState('')
   const [bench, setBench] = useState(false)          // bankmodus: live, grote knoppen, 3-traps kwaliteit
   const [askTo, setAskTo] = useState(null)            // na een aanval: waar kwam de bal neer? {eventId}
+  const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team: blokkende ploeg}
+  const [smart, setSmart] = useState(true)            // slim taggen: volgende stap klaarzetten, punten automatisch
   const v = useRef(); const saveT = useRef()
 
   useEffect(() => { setScout(fixScout(match?.scout)); setSet(0) }, [matchId])
+  useEffect(() => { if (smart && match) setPending({ ...serveStep(derive(match, fixScout(match.scout), set).serve), lib: false }) }, [matchId, set, smart])
   useEffect(() => {              // autosave 1 s na laatste wijziging
     if (!match) return
     clearTimeout(saveT.current); saveT.current = setTimeout(() => onSaveScout(match, scout), 1000)
@@ -49,12 +52,30 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     const p = pending
     const id = uid()
     setScout(s => ({ ...s, events: [...s.events, { id, set, t: now(), type: 'touch', team: p.team, act: p.act, zone: p.zone, q, playerId: pl?.id || '', playerNr: pl?.nr || '', lib: !!pl?.lib, rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them }] }))
-    setPending({ team: p.team, act: null, zone: null, lib: false })
+    const ev = { team: p.team, act: p.act, q }
+    if (smart) {
+      const n = nextStep(ev)
+      if (n.point) { pointAfter(n.point, d); }
+      else if (n.askBlock) { setAskBlock({ team: p.team === 'us' ? 'them' : 'us' }); setPending({ team: null, act: null, zone: null, lib: false }) }
+      else if (n.pending) setPending({ ...n.pending, lib: false })
+      else setPending({ team: p.team, act: null, zone: null, lib: false })
+    } else setPending({ team: p.team, act: null, zone: null, lib: false })
     if (p.act === 'aanval' && p.team === 'us' && !bench && q !== '=' && q !== '/') setAskTo(id)
   }
   function setTo(zone) { setScout(s => ({ ...s, events: s.events.map(e => e.id === askTo ? { ...e, to: zone } : e) })); setAskTo(null) }
   function openReport() { const win = window.open('', '_blank'); if (!win) { flash('Sta pop-ups toe voor het rapport'); return } win.document.write(reportHtml(match, scout, roster, teamName)); win.document.close() }
-  function point(team) { push({ type: 'point', team, us: d.us + (team === 'us'), them: d.them + (team === 'them') }); setPending({ team: null, act: null, zone: null, lib: false }) }
+  function pointAfter(team, dd) {
+    push({ type: 'point', team, us: dd.us + (team === 'us'), them: dd.them + (team === 'them') })
+    const serveNext = dd.serve === team ? team : team   // winnaar serveert altijd
+    setPending(smart ? { ...serveStep(serveNext), lib: false } : { team: null, act: null, zone: null, lib: false })
+    flash(`Punt ${team === 'us' ? teamName : match.opp}`)
+  }
+  function point(team) { pointAfter(team, d) }
+  function blockBy(zone) {
+    const t = askBlock.team; const pl = zone ? playerAt(t, zone) : null
+    if (pl) push({ type: 'touch', team: t, act: 'blok', zone, q: '#', playerId: pl.id || '', playerNr: pl.nr || '', lib: false, rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them })
+    setAskBlock(null); pointAfter(t, d)
+  }
   function undo() { const ev = scout.events.filter(e => e.set === set); const last = ev[ev.length - 1]; if (last) setScout(s => ({ ...s, events: s.events.filter(e => e.id !== last.id) })) }
   function sub() {
     const opts = match.sets[set].pos.map((id, k) => { const p = roster.find(x => x.id === d.lineup[k]); return `${k}: ${p ? p.nr + ' ' + p.name : '?'}` }).join('\n')
@@ -66,6 +87,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   useEffect(() => {
     const h = e => {
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) || modal) return
+      if (askBlock) { if ('234'.includes(e.key) && e.key) blockBy(+e.key); else blockBy(null); return }
       if (askTo) { if ('123456'.includes(e.key) && e.key) { setTo(+e.key); return } setAskTo(null); if (e.key === 'Escape') return }
       const k = e.key.toLowerCase(); const vid = v.current
       if (e.key === ' ') { e.preventDefault(); vid?.paused ? vid?.play() : vid?.pause(); return }
@@ -92,6 +114,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <button onClick={() => setModal('stats')}>Statistieken</button>
         <button onClick={openReport}>Rapport (PDF)</button>
         <button className={bench ? 'on' : ''} onClick={() => setBench(b => !b)} title="Live op de bank: geen video, grote knoppen, 3 niveaus">Bankmodus</button>
+        <button className={smart ? 'on' : ''} onClick={() => setSmart(v => !v)} title="Zet na elke tag de logische volgende stap klaar en kent punten automatisch toe">Slim</button>
         <button onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([scoutCsv(scout, teamName, match.opp)], { type: 'text/csv;charset=utf-8' })); a.download = `scout-${match.opp}.csv`; a.click() }}>CSV</button>
       </div>
       <video ref={v} controls playsInline style={{ display: bench ? 'none' : '' }} />
@@ -113,7 +136,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>)
           : QUALITIES.map(([q, t]) => { const lbl = pending.act ? Q_LABELS[pending.act][q] : t; if (pending.act && lbl === null) return null
             return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div>
-        <div className="hint">Volgende tag: {pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}</div>
+        <div className="hint">{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && pending.act === 'opslag' && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
       </div>
       <div className="row"><button className="us" onClick={() => point('us')}>Punt {teamName} <kbd>Q</kbd></button><button className="them" onClick={() => point('them')}>Punt {match.opp} <kbd>E</kbd></button><button onClick={undo}>↶ Ongedaan <kbd>Z</kbd></button></div>
       <div className="log">{ev.map(e => <div key={e.id} className={e.type === 'point' ? 'rally' : ''} onClick={() => { if (v.current) v.current.currentTime = Math.max(0, e.t - 2) }}>
@@ -130,6 +153,9 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       <h2>{match.opp} <span className="hint">{d.servers.length >= 6 ? 'rotatie bekend' : `${d.servers.length}/6 servers`}</span></h2><Court team="them" />
       <div className="hint">Bij hun opslag vraagt de app het rugnummer van de server; na 6 servers is hun rotatie bekend. <kbd>L</kbd> = libero-markering voor de volgende tag.</div>
     </section>
+    {askBlock && <Modal onClose={() => blockBy(null)}><h2>Geblokt — door wie?</h2><p>Netspelers van {askBlock.team === 'us' ? teamName : match.opp}. Het punt gaat naar hen.</p>
+      <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); return <button key={z} onClick={() => blockBy(z)}>z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
+      <button className="ghost" onClick={() => blockBy(null)}>Weet ik niet — alleen het punt</button></Modal>}
     {askTo && <Modal onClose={() => setAskTo(null)}><h2>Waar kwam de bal neer?</h2><p>Tik de zone bij {match.opp} (gezien vanaf hun kant), of sla over.</p>
       <div className="court"><div className="floor">{[[2, 3, 4], [1, 6, 5]].map((row, ri) => row.map(z => <div key={z} className="pos scell" style={{ order: ri * 3 }} onClick={() => setTo(z)}><small>zone</small><b>{z}</b></div>))}</div></div>
       <button className="ghost" onClick={() => setAskTo(null)}>Sla over</button></Modal>}

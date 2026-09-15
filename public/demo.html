@@ -93,6 +93,7 @@ const P={1:'Lien',3:'Sara',5:'Emma',7:'Noor',8:'Lotte',10:'Fien',12:'Julie',14:'
 const POS=['IV','III','II','V','VI','I'];const R=[5,4,3,0,1,2];const Z2D={1:5,2:2,3:1,4:0,5:3,6:4};const D2Z={5:1,2:2,1:3,0:4,3:5,4:6};
 const QL={opslag:{'#':'ace','+':'goed','!':'neutraal','-':'makkelijk','/':null,'=':'fout'},receptie:{'#':'perfect','+':'goed','!':'matig','-':'slecht','/':null,'=':'ace tegen'},pas:{'#':'perfect','+':'goed','!':'matig','-':'slecht','/':null,'=':'fout'},aanval:{'#':'kill','+':'goed','!':'in spel','-':'tegenaanval','/':'geblokt','=':'fout'},blok:{'#':'blokpunt','+':'vertraagd','!':'in spel','-':'touch out','/':null,'=':'fout'},verdediging:{'#':'perfect','+':'goed','!':'matig','-':'slecht','/':null,'=':'fout'}};
 const ZF={opslag:[1],receptie:[1,5,6],blok:[2,3,4],verdediging:[1,5,6]};
+function nextStep(e){const o=e.team==='us'?'them':'us',q=e.q;switch(e.act){case 'opslag':return q==='#'?{point:e.team}:q==='='?{point:o}:{pending:{team:o,act:'receptie'}};case 'receptie':case 'pas':case 'verdediging':return q==='='?{point:o}:{pending:{team:e.team,act:'aanval'}};case 'aanval':return q==='#'?{point:e.team}:q==='='?{point:o}:q==='/'?{block:o}:{pending:{team:o,act:'verdediging'}};case 'blok':return q==='#'?{point:e.team}:q==='='?{point:o}:{pending:{team:null,act:'verdediging'}}}return{}}
 const dispIndex=(rot,k)=>R[(R.indexOf(k)+rot)%6],baseIndex=(rot,d)=>R[(R.indexOf(d)-rot+6)%6];
 let S;
 function reset(){S={setup:false,pos:[1,3,5,7,8,10],lib:14,libFor:8,us:0,them:0,serve:'them',rot:0,pending:{team:null,act:null,zone:null},log:[],opp:['?','?','?','?','?','?'],oppRot:0,set:1,sets:[]}}
@@ -138,20 +139,35 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));let speed=0.5,paused=false,abor
 async function wait(ms){let t=0;while(t<ms){if(abort)throw'abort';if(!paused){await sleep(40);t+=40*speed}else await sleep(80)}}
 
 // ---------- tag-acties
+let autoPointed=false;
 async function tag(team,act,zone,q,who){
-  S.pending={team,act:null,zone:null};await click(`[data-team="${team}"]`);S.pending.team=team;$(`[data-team="${team}"]`).classList.add('on');updatePend();
-  await click(`[data-act="${act}"]`);S.pending.act=act;S.pending.zone=act==='opslag'?1:null;scoutScreen();S.pending={team,act,zone:S.pending.zone};$(`[data-team="${team}"]`).classList.add('on');
-  if(act!=='opslag'){await click(`.mb[data-mz="${zone}"]`);S.pending.zone=zone;$(`.mb[data-mz="${zone}"]`).classList.add('on');updatePend()}else{await wait(400)}
+  autoPointed=false;
+  if(S.pending.team!==team){S.pending={team,act:null,zone:null};await click(`[data-team="${team}"]`);S.pending.team=team;scoutScreen()}
+  if(S.pending.act!==act){await click(`[data-act="${act}"]`);S.pending.act=act;S.pending.zone=act==='opslag'?1:null;scoutScreen()}
+  if(act!=='opslag'){await click(`.mb[data-mz="${zone}"]`);S.pending.zone=zone;$(`.mb[data-mz="${zone}"]`).classList.add('on');updatePend()}else{await wait(300)}
   await click(`[data-q="${q}"]`);
   const pl=team==='us'?playerAt(zone):{nr:who||oppAt(zone)};
   if(team==='them'&&act==='opslag'&&who){const k=baseIndex(S.oppRot,Z2D[1]);const idx=[5,2,1,0,3,4].indexOf(k);if(S.opp[idx]==='?')S.opp[idx]=who}
   addLog(`${team==='us'?TEAM:OPP} · ${act} z${zone} ${q} · <b>#${pl.nr}</b>${pl.lib?' (L)':''}`);
-  S.pending={team,act:null,zone:null};scoutScreen();vsec+=3;$('#vt').textContent=vt();
+  vsec+=3;
+  const n=nextStep({team,act,q});
+  if(n.point){await autoPoint(n.point)}
+  else if(n.block){S.pending={team:null,act:null,zone:null};scoutScreen();const fr=[4,3,2].map(z=>({z,nr:n.block==='us'?playerAt(z).nr:oppAt(z)}));
+    const m=document.createElement('div');m.className='overlay';m.style.background='rgba(16,27,51,.5)';m.innerHTML=`<div class="panel" style="width:420px"><h2>Geblokt — door wie?</h2><div class="row">${fr.map(f=>`<span class="btn" data-bz="${f.z}">z${f.z} · ${f.nr}${P[f.nr]?' '+P[f.nr]:''}</span>`).join('')}</div><span class="hint">Het punt gaat naar ${n.block==='us'?TEAM:OPP}.</span></div>`;app.appendChild(m);
+    await click('[data-bz="3"]');m.remove();const bp=n.block==='us'?playerAt(3):{nr:oppAt(3)};addLog(`${n.block==='us'?TEAM:OPP} · blok z3 # · <b>#${bp.nr}</b>`);await autoPoint(n.block)}
+  else{S.pending={team:n.pending?n.pending.team:team,act:n.pending?n.pending.act:null,zone:null};scoutScreen()}
+  $('#vt').textContent=vt();
+}
+async function autoPoint(team){
+  if(team==='us'){S.us++;if(S.serve==='them'){S.serve='us';S.rot=(S.rot+1)%6}}else{S.them++;if(S.serve==='us'){S.serve='them';S.oppRot=(S.oppRot+1)%6}}
+  addLog(`Punt ${team==='us'?TEAM:OPP} → ${S.us}-${S.them} <span class="hint">(automatisch)</span>`,true);S.pending={team:S.serve,act:'opslag',zone:1};scoutScreen();
+  $(team==='us'?'#scUs':'#scThem').classList.add('bump');app.querySelectorAll('.cell[data-team="us"]').forEach(c=>c.classList.add('bump'));vsec+=8;autoPointed=true;await wait(700);
 }
 async function point(team){
+  if(autoPointed){autoPointed=false;return}
   await click(`[data-pt="${team}"]`);
   if(team==='us'){S.us++;if(S.serve==='them'){S.serve='us';S.rot=(S.rot+1)%6}}else{S.them++;if(S.serve==='us'){S.serve='them';S.oppRot=(S.oppRot+1)%6}}
-  addLog(`Punt ${team==='us'?TEAM:OPP} → ${S.us}-${S.them}`,true);S.pending={team:null,act:null,zone:null};scoutScreen();
+  addLog(`Punt ${team==='us'?TEAM:OPP} → ${S.us}-${S.them}`,true);S.pending={team:S.serve,act:'opslag',zone:1};scoutScreen();
   $(team==='us'?'#scUs':'#scThem').classList.add('bump');app.querySelectorAll('.cell[data-team="us"]').forEach(c=>c.classList.add('bump'));vsec+=8;
 }
 
@@ -177,25 +193,25 @@ async function ch1(){
   scoutScreen();await wait(2600);
 }
 async function ch2(){
-  if(!S||S.log.length)reset();scoutScreen();
-  caption(2,'Elke tag is drie of vier tikken, van boven naar beneden: wie → actie → speler op het veldje → kwaliteit. De namen op het veldje komen uit de rotatie.');await wait(1800);
-  caption(2,'Gierle serveert. Bij hun opslag vraagt de app het rugnummer: #9. Na zes servers kent de app hun hele rotatie.');
+  if(!S||S.log.length)reset();S.pending={team:S.serve,act:'opslag',zone:1};scoutScreen();
+  caption(2,'De app zet de logische volgende stap al klaar. Gierle serveert, dus ploeg, opslag en de server (zone 1) staan al geselecteerd: alleen de kwaliteit tikken.');await wait(1800);
+  caption(2,'Bij hun opslag vraagt de app het rugnummer: #9. Na zes servers kent de app hun hele rotatie. De opslag is in spel, dus nu staat klaar: VNK, receptie.');
   await tag('them','opslag',1,'+','9');
   caption(2,'Receptie: alleen de achterste zones lichten op. In zone 6 hoort 8 Lotte te staan, maar zij staat achteraan — dus toont de app de libero: 14 Hanne (L).');
   await tag('us','receptie',6,'+');
-  caption(2,'Aanval uit zone 4 door 1 Lien. De codes zijn de Data Volley-standaard; het woord eronder past zich aan de actie aan: # = kill. Daarna: Punt VNK.');
+  caption(2,'Na de receptie staat de aanval klaar. Zone 4, 1 Lien, kwaliteit # = kill. Het punt komt automatisch: geen aparte tik.');
   await tag('us','aanval',4,'#');
   await point('us');
-  caption(2,'Side-out: VNK won op de opslag van Gierle en draait één positie door. Kijk naar het veld rechts — iedereen schuift op, Fien serveert nu. Bij opslag is de speler al ingevuld.');await wait(2400);
+  caption(2,'Side-out: VNK draait één positie door en serveert. Kijk rechts — iedereen schuift op, Fien staat op I, en de opslag staat alweer klaar.');await wait(2400);
   // rally 2: we serve
   await tag('us','opslag',1,'!');
   caption(2,'Gierle ontvangt en valt aan. Wat je van hen tagt, kies je zelf; opslag, receptie en aanval volstaan voor een goed beeld.');
   await tag('them','receptie',5,'+','4');await tag('them','aanval',4,'#','4');
   await point('them');
-  caption(2,'Gierle wint op onze opslag: zij draaien door, wij niet. Stand 1-1.');await wait(1500);
+  caption(2,'Kill van Gierle: punt en opslagwissel gaan vanzelf. Zij draaien door, wij niet. Stand 1-1.');await wait(1500);
   // rally 3
   await tag('them','opslag',1,'=','4');
-  caption(2,'Opslagfout van Gierle. Alleen "Punt VNK" tikken volstaat; de app weet wie er serveerde.');await point('us');
+  caption(2,'Opslagfout van Gierle: één tik op = en het punt is voor VNK, automatisch.');await point('us');
   // rallies 4-10 sneller
   const seq=[
     ['us','opslag',1,'+'],['them','receptie',6,'-','?'],['them','aanval',2,'=','?'],['pt','us'],
