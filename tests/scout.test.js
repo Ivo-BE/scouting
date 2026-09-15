@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -61,4 +61,12 @@ test('spelverdeling per rotatie met split op eerste bal', () => {
   const d = distribution(sc)
   assert.equal(d[0].zones[4], 1); assert.equal(d[0].good[4], 1)
   assert.equal(d[1].zones[2], 1); assert.equal(d[1].bad[2], 1); assert.deepEqual(d[1].pas, ['!'])
+})
+
+test('bankmodus: alleen eigen ploeg, start bij receptie als zij serveren', () => {
+  assert.deepEqual(benchStart('them'), { team: 'us', act: 'receptie', zone: null })
+  assert.deepEqual(benchStart('us'), { team: 'us', act: 'opslag', zone: 1 })
+  assert.deepEqual(benchNext({ act: 'opslag', q: '!' }), { pending: { team: 'us', act: null, zone: null } })
+  assert.deepEqual(benchNext({ act: 'aanval', q: '/' }), { point: 'them' })
+  assert.deepEqual(benchNext({ act: 'receptie', q: '=' }), { point: 'them' })
 })

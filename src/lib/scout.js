@@ -103,7 +103,7 @@ export function attackDirections(scout, team) {
   return by
 }
 // --- bankmodus: 3 niveaus -> symbolen
-export const SIMPLE_Q = { receptie: [['goed', '+'], ['matig', '!'], ['fout', '=']], aanval: [['punt', '#'], ['in spel', '!'], ['fout', '=']], opslag: [['ace', '#'], ['in spel', '!'], ['fout', '=']] }
+export const SIMPLE_Q = { receptie: [['goed', '+'], ['matig', '!'], ['fout', '=']], aanval: [['punt', '#'], ['in spel', '!'], ['geblokt', '/'], ['fout', '=']], opslag: [['ace', '#'], ['in spel', '!'], ['fout', '=']], blok: [['blokpunt', '#'], ['in spel', '!'], ['fout', '=']], verdediging: [['goed', '+'], ['matig', '!'], ['fout', '=']], pas: [['goed', '+'], ['matig', '!'], ['fout', '=']] }
 
 // --- labels per actie bij de Data Volley-symbolen; null = symbool niet van toepassing bij deze actie
 export const Q_LABELS = {
@@ -135,6 +135,20 @@ export function nextStep(e, opts = {}) {
   return {}
 }
 export const serveStep = serve => ({ team: serve, act: 'opslag', zone: 1 })
+// Bankmodus: alleen de eigen ploeg. Zij serveren -> begin bij onze receptie; wij serveren -> onze opslag.
+export const benchStart = serve => serve === 'us' ? { team: 'us', act: 'opslag', zone: 1 } : { team: 'us', act: 'receptie', zone: null }
+export function benchNext(e, opts = {}) {
+  const q = e.q
+  switch (e.act) {
+    case 'opslag':      return q === '#' ? { point: 'us' } : q === '=' ? { point: 'them' } : { pending: { team: 'us', act: null, zone: null } }   // rally loopt: tik wat je ziet, of het punt
+    case 'receptie':
+    case 'verdediging': return q === '=' ? { point: 'them' } : opts.tagPas ? { pending: { team: 'us', act: 'pas', zone: null } } : { pending: { team: 'us', act: 'aanval', zone: null } }
+    case 'pas':         return q === '=' ? { point: 'them' } : { pending: { team: 'us', act: 'aanval', zone: null } }
+    case 'aanval':      return q === '#' ? { point: 'us' } : q === '=' || q === '/' ? { point: 'them' } : { pending: { team: 'us', act: null, zone: null } }
+    case 'blok':        return q === '#' ? { point: 'us' } : q === '=' ? { point: 'them' } : { pending: { team: 'us', act: null, zone: null } }
+  }
+  return {}
+}
 
 // --- setter op het veld (voor het klaarzetten van de pas): zone van de setter in de huidige rotatie, of null
 export function setterZone(match, roster, scout, setIdx, d) {

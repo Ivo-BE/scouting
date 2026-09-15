@@ -192,3 +192,13 @@
   .scout .chip.next.ghostchip{visibility:hidden}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
   .scout .chip:hover:not(.next){border-color:var(--warn)}
+
+  .scout .benchhead{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;display:grid;gap:6px;text-align:center}
+  .scout .bscore{display:flex;align-items:center;justify-content:center;gap:12px}
+  .scout .bscore b{font:700 44px/1 "Barlow Condensed";cursor:pointer;padding:0 6px;border-radius:6px}.scout .bscore b:hover{background:#EEF1F5}
+  .scout .bscore .bsep{font:700 30px "Barlow Condensed";color:var(--mute)}.scout .bteam{font:600 14px Barlow;color:var(--mute);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .scout .bmeta{font-size:13px;color:var(--mute)}
+  .scout .banner{background:#FFF4E5;border:1px solid #F5C98A;border-radius:8px;padding:8px 10px;font-size:13px;margin:6px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .scout.bench .scout-right{display:none}
+  .scout.bench{grid-template-columns:1fr}
+  .scout.bench .rally .lane:last-child{display:none}
