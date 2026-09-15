@@ -66,3 +66,21 @@ export async function importLegacy(teamId, json) {
   }
   return { players: Object.keys(idMap).length, matches: (json.matches || []).length }
 }
+
+// --- backup / herstel (volledige ploeg als JSON)
+export async function exportBackup(team) {
+  const [players, matches] = await Promise.all([
+    supabase.from('players').select('*').eq('team_id', team.id),
+    supabase.from('matches').select('*').eq('team_id', team.id),
+  ])
+  if (players.error) throw players.error; if (matches.error) throw matches.error
+  return { format: 'scouting-backup', version: 1, exported_at: new Date().toISOString(), team: { name: team.name }, players: players.data, matches: matches.data }
+}
+// Herstel in de huidige ploeg: rijen met een bekend id worden bijgewerkt, onbekende toegevoegd. Verwijdert nooit iets.
+export async function restoreBackup(teamId, b) {
+  if (b.format !== 'scouting-backup' || !Array.isArray(b.players) || !Array.isArray(b.matches)) throw new Error('Geen geldig backupbestand')
+  const strip = r => { const { created_at, updated_at, created_by, ...rest } = r; return { ...rest, team_id: teamId } }
+  if (b.players.length) { const { error } = await supabase.from('players').upsert(b.players.map(strip), { onConflict: 'id' }); if (error) throw error }
+  if (b.matches.length) { const { error } = await supabase.from('matches').upsert(b.matches.map(strip), { onConflict: 'id' }); if (error) throw error }
+  return { players: b.players.length, matches: b.matches.length }
+}

@@ -156,3 +156,5 @@
   .scout .stats th,.scout .stats td{font-size:11px;padding:3px}
   .io button.on{background:var(--zone);color:#fff;border-color:var(--zone)}
   .sheet h3{margin-top:6px}
+
+  .io button.warnbtn{border-color:var(--warn);color:var(--warn)}

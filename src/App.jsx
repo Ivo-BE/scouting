@@ -22,7 +22,7 @@ export default function App() {
   const [modal, setModal] = useState(null)     // {type:'report',match} | {type:'stats'} | {type:'members'}
   const [msg, setMsg] = useState(''); const [err, setErr] = useState('')
   const [view, setView] = useState('match')
-  const fileRef = useRef()
+  const fileRef = useRef(); const backupRef = useRef()
 
   const flash = t => { setMsg(t); setTimeout(() => setMsg(m => m === t ? '' : m), 2500) }
   const fail = e => { console.error(e); setErr(e.message || String(e)); setTimeout(() => setErr(''), 6000) }
@@ -56,6 +56,19 @@ export default function App() {
   }
   async function del(m) { if (!confirm(`Wedstrijd tegen ${m.opp} verwijderen?`)) return; try { await db.deleteMatch(m.id); setMatches(ms => ms.filter(x => x.id !== m.id)); if (match.id === m.id) setMatch(newMatch()) } catch (e) { fail(e) } }
   function download(name, content, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = name; a.click() }
+  const LASTB = 'scouting:lastbackup'
+  const [lastBackup, setLastBackup] = useState(() => localStorage.getItem(LASTB) || '')
+  async function backup() {
+    try { const b = await db.exportBackup(team); download(`backup-${team.name.replace(/\s+/g, '-')}-${today()}.json`, JSON.stringify(b, null, 2), 'application/json')
+      localStorage.setItem(LASTB, today()); setLastBackup(today()); flash('Backup gedownload') } catch (e) { fail(e) }
+  }
+  async function restore(e) {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return
+    try { const b = JSON.parse(await f.text())
+      if (!confirm(`Backup van ${b.team?.name || '?'} (${b.exported_at?.slice(0, 10)}) terugzetten in ${team.name}? Bestaande spelers en wedstrijden met hetzelfde id worden overschreven; er wordt niets verwijderd.`)) return
+      const r = await db.restoreBackup(team.id, b); setRoster(await db.loadPlayers(team.id)); setMatches(await db.loadMatches(team.id)); flash(`${r.players} spelers en ${r.matches} wedstrijden hersteld`) } catch (x) { fail(x) }
+  }
+  const backupOld = !lastBackup || (Date.now() - new Date(lastBackup).getTime()) > 30 * 86400000
   async function importJson(e) {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return
     try { const j = JSON.parse(await f.text()); if (!Array.isArray(j.roster) || !Array.isArray(j.matches)) throw new Error('Geen geldige export')
@@ -80,6 +93,8 @@ export default function App() {
           <button onClick={() => setModal({ type: 'members' })}>Coach toevoegen</button>
           <button onClick={() => download(`seizoen-${team.name.replace(/\s+/g, '-')}-${today()}.csv`, csv(matches, roster), 'text/csv;charset=utf-8')}>Seizoen als Excel</button>
           <button onClick={() => fileRef.current.click()}>Importeer oude export</button><input ref={fileRef} type="file" accept=".json" hidden onChange={importJson} />
+          <button className={backupOld ? 'warnbtn' : ''} onClick={backup} title={lastBackup ? 'Laatste backup ' + lastBackup : 'Nog geen backup gemaakt op dit toestel'}>Backup{backupOld ? ' !' : ''}</button>
+          <button onClick={() => backupRef.current.click()}>Herstel</button><input ref={backupRef} type="file" accept=".json" hidden onChange={restore} />
           <button className="ghost" onClick={() => supabase.auth.signOut()}>Uitloggen</button>
         </div></div>
     </header>

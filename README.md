@@ -1,4 +1,4 @@
-# Opstellingen
+# Scouting
 
 Wedstrijd-app voor volleybalcoaches: opstelling per set, wissels volgens de FIVB-regel, rotatie, stand, time-outs, verslag en seizoensstatistieken. Vite + React + Supabase, gehost op Vercel.
 
@@ -34,6 +34,6 @@ npm test                  # wedstrijdlogica
 ## Structuur
 - `supabase/schema.sql` — tabellen `teams`, `team_members`, `players`, `matches` (sets en scout als JSONB) + RLS. Al eerder uitgevoerd? Draai dan `supabase/migrations_002_scout.sql`.
 - `src/lib/volley.js` — pure wedstrijdlogica (wisselregel, rotatie, setwinnaar, undo, verslag, csv). Getest in `tests/`.
-- `src/lib/db.js` — alle Supabase-calls, incl. import van de oude export.
+- `src/lib/db.js` — alle Supabase-calls, incl. import van de oude export en Backup/Herstel (volledige ploeg als JSON; Herstel voegt toe of overschrijft op id, verwijdert nooit).
 - `src/components/` — UI. `SetCard` is het veld per set.
 - `public/sw.js` — offline app-shell; data komt altijd van Supabase, het lopende concept staat ook in localStorage.
