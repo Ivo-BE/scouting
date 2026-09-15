@@ -22,6 +22,7 @@ create table if not exists players (
   name text not null,
   is_libero boolean not null default false,
   is_captain boolean not null default false,
+  is_setter boolean not null default false,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -62,7 +63,7 @@ alter table players enable row level security;
 alter table matches enable row level security;
 
 drop policy if exists teams_select on teams;
-create policy teams_select on teams for select using (is_member(id));
+create policy teams_select on teams for select using (is_member(id) or created_by = auth.uid());
 drop policy if exists teams_insert on teams;
 create policy teams_insert on teams for insert with check (created_by = auth.uid());
 drop policy if exists teams_update on teams;
@@ -95,3 +96,5 @@ end $$;
 
 -- Scout (video-analyse) — per wedstrijd één JSON-blok: {serveFirst:{setIdx:'us'|'them'}, oppServers:{setIdx:[nr]}, oppFirstRot:{setIdx:n}, events:[...]}
 alter table matches add column if not exists scout jsonb not null default '{}'::jsonb;
+
+alter table players add column if not exists is_setter boolean not null default false;

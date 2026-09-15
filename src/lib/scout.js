@@ -48,7 +48,7 @@ export function oppPlayerAt(scout, setIdx, d, zone) {
   const rot = ((d.rotThem - (scout.oppFirstRot[setIdx] || 0)) % 6 + 6) % 6
   const k = baseIndex(rot, ZONE_TO_D[zone])
   const idx = [5, 2, 1, 0, 3, 4].indexOf(k)      // startslot -> plaats in opslagvolgorde (zone 1 = idx 0)
-  const nr = sv[idx]; return nr ? { nr, name: '#' + nr } : null
+  const nr = sv[idx]; return nr ? { nr, name: '' } : null
 }
 
 export function statsRows(scout, team, roster) {
@@ -121,16 +121,39 @@ export const ZONES_FOR = { opslag: [1], receptie: [1, 5, 6], pas: null, aanval: 
 //   {point:'us'|'them'}          rally is beslist, punt toekennen
 //   {askBlock:true}              aanval geblokt: vraag welke blokker, dan punt voor de andere ploeg
 //   {pending:{team,act,zone}}    volgende tag klaarzetten (zone null = speler nog te kiezen)
-export function nextStep(e) {
+export function nextStep(e, opts = {}) {
   const other = e.team === 'us' ? 'them' : 'us', q = e.q
+  const afterFirstTouch = () => q === '=' ? { point: other } : opts.tagPas && e.team === 'us' ? { pending: { team: e.team, act: 'pas', zone: null } } : { pending: { team: e.team, act: 'aanval', zone: null } }
   switch (e.act) {
     case 'opslag':      return q === '#' ? { point: e.team } : q === '=' ? { point: other } : { pending: { team: other, act: 'receptie', zone: null } }
     case 'receptie':
-    case 'pas':
-    case 'verdediging': return q === '=' ? { point: other } : { pending: { team: e.team, act: 'aanval', zone: null } }
+    case 'verdediging': return afterFirstTouch()
+    case 'pas':         return q === '=' ? { point: other } : { pending: { team: e.team, act: 'aanval', zone: null } }
     case 'aanval':      return q === '#' ? { point: e.team } : q === '=' ? { point: other } : q === '/' ? { askBlock: true } : { pending: { team: other, act: 'verdediging', zone: null } }
     case 'blok':        return q === '#' ? { point: e.team } : q === '=' ? { point: other } : { pending: { team: null, act: 'verdediging', zone: null } }
   }
   return {}
 }
 export const serveStep = serve => ({ team: serve, act: 'opslag', zone: 1 })
+
+// --- setter op het veld (voor het klaarzetten van de pas): zone van de setter in de huidige rotatie, of null
+export function setterZone(match, roster, scout, setIdx, d) {
+  for (const z of [1, 2, 3, 4, 5, 6]) { const p = ourPlayerAt(match, roster, scout, setIdx, d, z); if (p && roster.find(r => r.id === p.id)?.set) return z }
+  return null
+}
+// --- spelverdeling: per rotatie het aandeel aanvallen per aanvalszone, gesplitst naar kwaliteit van de voorafgaande receptie/verdediging
+export function distribution(scout) {
+  const rows = Array.from({ length: 6 }, (_, r) => ({ rot: r, total: 0, zones: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }, good: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }, goodN: 0, bad: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }, badN: 0, pas: [] }))
+  let prev = null
+  scout.events.forEach(e => {
+    if (e.type === 'point') { prev = null; return }
+    if (e.type !== 'touch') return
+    if (e.team === 'us' && e.act === 'aanval' && e.zone) {
+      const r = rows[e.rotUs ?? 0]; r.total++; r.zones[e.zone]++
+      if (prev && (prev.act === 'receptie' || prev.act === 'verdediging')) { const g = prev.q === '#' || prev.q === '+'; if (g) { r.good[e.zone]++; r.goodN++ } else { r.bad[e.zone]++; r.badN++ } }
+    }
+    if (e.team === 'us' && e.act === 'pas') rows[e.rotUs ?? 0].pas.push(e.q)
+    if (e.team === 'us' && (e.act === 'receptie' || e.act === 'verdediging')) prev = e; else if (e.team === 'us' && e.act === 'pas') { /* prev blijft de eerste bal */ } else if (e.team !== 'us') prev = null
+  })
+  return rows
+}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { POS } from '../lib/volley.js'
-import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
+import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, setterZone, distribution, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
 import { reportHtml } from './ScoutReport.js'
 import Modal from './Modal.jsx'
 
@@ -20,6 +20,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const [askTo, setAskTo] = useState(null)            // na een aanval: waar kwam de bal neer? {eventId}
   const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team: blokkende ploeg}
   const [smart, setSmart] = useState(true)            // slim taggen: volgende stap klaarzetten, punten automatisch
+  const [tagPas, setTagPas] = useState(() => localStorage.getItem('scout:tagPas') === '1')
   const v = useRef(); const saveT = useRef()
 
   useEffect(() => { setScout(fixScout(match?.scout)); setSet(0) }, [matchId])
@@ -55,10 +56,10 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     setScout(s => ({ ...s, events: [...s.events, { id, set, t: now(), type: 'touch', team: p.team, act: p.act, zone: p.zone, q, playerId: pl?.id || '', playerNr: pl?.nr || '', lib: !!pl?.lib, rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them }] }))
     const ev = { team: p.team, act: p.act, q }
     if (smart) {
-      const n = nextStep(ev)
+      const n = nextStep(ev, { tagPas })
       if (n.point) { pointAfter(n.point, d); }
       else if (n.askBlock) { setAskBlock({ team: p.team === 'us' ? 'them' : 'us' }); setPending({ team: null, act: null, zone: null, lib: false }) }
-      else if (n.pending) setPending({ ...n.pending, lib: false })
+      else if (n.pending) { const sz = n.pending.act === 'pas' ? setterZone(match, roster, scout, set, d) : null; setPending({ ...n.pending, zone: sz, lib: false }) }
       else setPending({ team: p.team, act: null, zone: null, lib: false })
     } else setPending({ team: p.team, act: null, zone: null, lib: false })
     if (p.act === 'aanval' && p.team === 'us' && !bench && q !== '=' && q !== '/') setAskTo(id)
@@ -137,6 +138,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <button onClick={openReport}>Rapport (PDF)</button>
         <button className={bench ? 'on' : ''} onClick={() => setBench(b => !b)} title="Live op de bank: geen video, grote knoppen, 3 niveaus">Bankmodus</button>
         <button className={smart ? 'on' : ''} onClick={() => setSmart(v => !v)} title="Zet na elke tag de logische volgende stap klaar en kent punten automatisch toe">Slim</button>
+        <button className={tagPas ? 'on' : ''} onClick={() => setTagPas(v => { localStorage.setItem('scout:tagPas', v ? '' : '1'); return !v })} title="Na elke receptie/verdediging de pas klaarzetten, met de setter al ingevuld">Pas taggen</button>
         <button onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([scoutCsv(scout, teamName, match.opp)], { type: 'text/csv;charset=utf-8' })); a.download = `scout-${match.opp}.csv`; a.click() }}>CSV</button>
       </div>
       <video ref={v} controls playsInline style={{ display: bench ? 'none' : '' }} />
@@ -159,7 +161,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>)
           : QUALITIES.map(([q, t]) => { const lbl = pending.act ? Q_LABELS[pending.act][q] : t; if (pending.act && lbl === null) return null
             return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div></div>
-        <div className="hint">{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && pending.act === 'opslag' && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
+        <div className="hint">{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && (pending.act === 'opslag' || pending.act === 'pas') && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
       </div>
       <div className="row"><button className="us" onClick={() => point('us')}>Punt {teamName} <kbd>Q</kbd></button><button className="them" onClick={() => point('them')}>Punt {match.opp} <kbd>E</kbd></button><button onClick={undo}>↶ Ongedaan <kbd>Z</kbd></button></div>
       <div className="log">{ev.map(e => <div key={e.id} className={e.type === 'point' ? 'rally' : ''} onClick={() => { if (v.current) v.current.currentTime = Math.max(0, e.t - 2) }}>
@@ -192,6 +194,11 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     {modal === 'stats' && <Modal onClose={() => setModal(null)}><h2>Statistieken</h2>
       <h3>Side-out per rotatie</h3><table className="stats"><thead><tr><th>Rot</th><th>Server</th><th>Ontv</th><th>SO</th><th>SO%</th><th>Serv</th><th>Break</th><th>Br%</th></tr></thead>
         <tbody>{rotationStats(match, scout, roster).map(r => <tr key={r.rot}><td>R{r.rot + 1}</td><td>{r.server}</td><td>{r.recv}</td><td>{r.so}</td><td>{r.soPct ?? ''}{r.soPct != null ? '%' : ''}</td><td>{r.serve}</td><td>{r.brk}</td><td>{r.brkPct ?? ''}{r.brkPct != null ? '%' : ''}</td></tr>)}</tbody></table>
+      <h3>Spelverdeling {teamName} per rotatie</h3><table className="stats"><thead><tr><th>Rot</th><th>Aanv</th><th>z4</th><th>z3</th><th>z2</th><th>achter</th><th>na goede bal → z4/z3/z2</th><th>na slechte bal → z4/z3/z2</th><th>Pas</th></tr></thead>
+        <tbody>{distribution(scout).map(r => { const pc = (n, t) => t ? Math.round(100 * n / t) + '%' : '–'; const back = r.zones[1] + r.zones[5] + r.zones[6]
+          return <tr key={r.rot}><td>R{r.rot + 1}</td><td>{r.total || ''}</td><td>{pc(r.zones[4], r.total)}</td><td>{pc(r.zones[3], r.total)}</td><td>{pc(r.zones[2], r.total)}</td><td>{pc(back, r.total)}</td>
+            <td>{r.goodN ? `${pc(r.good[4], r.goodN)} / ${pc(r.good[3], r.goodN)} / ${pc(r.good[2], r.goodN)}` : '–'}</td><td>{r.badN ? `${pc(r.bad[4], r.badN)} / ${pc(r.bad[3], r.badN)} / ${pc(r.bad[2], r.badN)}` : '–'}</td>
+            <td>{r.pas.length ? `${r.pas.length} · ${Math.round(100 * r.pas.filter(q => q === '#' || q === '+').length / r.pas.length)}% goed` : ''}</td></tr> })}</tbody></table>
       {['us', 'them'].map(team => <div key={team}><h3>{team === 'us' ? teamName : match.opp}</h3>
         <table className="stats"><thead><tr><th>Speler</th><th>Rec</th><th>Rec+</th><th>RecF</th><th>Aanv</th><th>Kills</th><th>AanvF</th><th>Eff</th><th>Opsl</th><th>Aces</th><th>OpslF</th><th>Blok</th><th>Verd</th></tr></thead>
           <tbody>{statsRows(scout, team, roster).map(r => <tr key={r.nr}><td>{r.nr} {r.name}</td><td>{r.recN || ''}</td><td>{r.recPos}</td><td>{r.recErr || ''}</td><td>{r.attN || ''}</td><td>{r.kills || ''}</td><td>{r.attErr || ''}</td><td>{r.eff}</td><td>{r.srvN || ''}</td><td>{r.aces || ''}</td><td>{r.srvErr || ''}</td><td>{r.blk || ''}</td><td>{r.dig || ''}</td></tr>)}</tbody></table></div>)}

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -47,4 +47,18 @@ test('slim taggen: volgende stap uit de laatste tag', () => {
   assert.deepEqual(nextStep({ team: 'them', act: 'aanval', q: '/' }), { askBlock: true })
   assert.deepEqual(nextStep({ team: 'them', act: 'aanval', q: '!' }), { pending: { team: 'us', act: 'verdediging', zone: null } })
   assert.deepEqual(nextStep({ team: 'us', act: 'blok', q: '#' }), { point: 'us' })
+})
+
+test('pas taggen: na receptie de pas klaarzetten', () => {
+  assert.deepEqual(nextStep({ team: 'us', act: 'receptie', q: '+' }, { tagPas: true }), { pending: { team: 'us', act: 'pas', zone: null } })
+  assert.deepEqual(nextStep({ team: 'us', act: 'pas', q: '+' }, { tagPas: true }), { pending: { team: 'us', act: 'aanval', zone: null } })
+  assert.deepEqual(nextStep({ team: 'them', act: 'receptie', q: '+' }, { tagPas: true }), { pending: { team: 'them', act: 'aanval', zone: null } })
+})
+test('spelverdeling per rotatie met split op eerste bal', () => {
+  const sc = { ...emptyScout(), events: [
+    { type: 'touch', team: 'us', act: 'receptie', q: '+', rotUs: 0 }, { type: 'touch', team: 'us', act: 'aanval', zone: 4, q: '#', rotUs: 0 }, { type: 'point', team: 'us' },
+    { type: 'touch', team: 'us', act: 'receptie', q: '-', rotUs: 1 }, { type: 'touch', team: 'us', act: 'pas', q: '!', rotUs: 1 }, { type: 'touch', team: 'us', act: 'aanval', zone: 2, q: '!', rotUs: 1 }, { type: 'point', team: 'them' } ] }
+  const d = distribution(sc)
+  assert.equal(d[0].zones[4], 1); assert.equal(d[0].good[4], 1)
+  assert.equal(d[1].zones[2], 1); assert.equal(d[1].bad[2], 1); assert.deepEqual(d[1].pas, ['!'])
 })

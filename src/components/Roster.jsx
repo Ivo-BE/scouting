@@ -6,7 +6,7 @@ export default function Roster({ teamId, roster, setRoster, onStats }) {
   const sorted = [...roster].sort((a, b) => (+a.nr || 999) - (+b.nr || 999))
   async function add(e) {
     e?.preventDefault(); if (!name.trim()) return
-    const p = await db.addPlayer(teamId, { nr: nr.trim(), name: name.trim(), lib: false, cap: false })
+    const p = await db.addPlayer(teamId, { nr: nr.trim(), name: name.trim(), lib: false, cap: false, set: false })
     setRoster([...roster, p]); setNr(''); setName('')
   }
   async function patch(p, changes) {
@@ -25,7 +25,8 @@ export default function Roster({ teamId, roster, setRoster, onStats }) {
         <td><input className="nm" defaultValue={p.name} onBlur={e => e.target.value !== p.name && patch(p, { name: e.target.value.trim() })} /></td>
         <td><span className="tag">
           <label title="Libero"><input type="checkbox" checked={p.lib} onChange={e => patch(p, { lib: e.target.checked })} /><span>L</span></label>
-          <label title="Kapitein"><input type="checkbox" checked={p.cap} onChange={e => patch(p, { cap: e.target.checked })} /><span>C</span></label></span></td>
+          <label title="Kapitein"><input type="checkbox" checked={p.cap} onChange={e => patch(p, { cap: e.target.checked })} /><span>C</span></label>
+          <label title="Setter (spelverdeler)"><input type="checkbox" checked={!!p.set} onChange={e => patch(p, { set: e.target.checked })} /><span>S</span></label></span></td>
         <td><button className="ghost" onClick={() => remove(p)}>×</button></td>
       </tr>)}
     </tbody></table>

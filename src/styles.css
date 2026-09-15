@@ -26,7 +26,7 @@
   /* roster */
   .roster{width:100%;border-collapse:collapse;table-layout:fixed}
   .roster td{padding:3px 2px;border-bottom:1px solid var(--line)}
-  .roster td:first-child{width:56px}.roster td:nth-child(3){width:64px}.roster td:last-child{width:32px}
+  .roster td:first-child{width:56px}.roster td:nth-child(3){width:92px}.roster td:last-child{width:32px}
   .roster input.nr{width:48px;text-align:center;font-weight:600}
   .roster input.nm{width:100%}
   .roster .tag{display:inline-flex;gap:2px}

@@ -15,8 +15,8 @@ export async function renameTeam(id, name) { const { error } = await supabase.fr
 export async function addMemberByEmail(teamId, email) { const { error } = await supabase.rpc('add_member_by_email', { t: teamId, email }); if (error) throw error }
 
 // --- spelers (UI-vorm: {id,nr,name,lib,cap})
-const toUi = p => ({ id: p.id, nr: p.nr, name: p.name, lib: p.is_libero, cap: p.is_captain })
-const toDb = (teamId, p) => ({ team_id: teamId, nr: p.nr || '', name: p.name, is_libero: !!p.lib, is_captain: !!p.cap })
+const toUi = p => ({ id: p.id, nr: p.nr, name: p.name, lib: p.is_libero, cap: p.is_captain, set: !!p.is_setter })
+const toDb = (teamId, p) => ({ team_id: teamId, nr: p.nr || '', name: p.name, is_libero: !!p.lib, is_captain: !!p.cap, is_setter: !!p.set })
 export async function loadPlayers(teamId) {
   const { data, error } = await supabase.from('players').select('*').eq('team_id', teamId).eq('active', true)
   if (error) throw error; return data.map(toUi)

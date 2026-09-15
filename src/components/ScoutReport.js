@@ -1,5 +1,5 @@
 // Rapport in Data Volley-stijl als afdrukbare HTML (PDF via de printdialoog van de browser).
-import { statsRows, rotationStats, attackDirections } from '../lib/scout.js'
+import { statsRows, rotationStats, attackDirections, distribution } from '../lib/scout.js'
 import { matchState, fmt } from '../lib/volley.js'
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
@@ -27,6 +27,11 @@ export function reportHtml(match, scout, roster, teamName) {
   const dirs = attackDirections(scout, 'us')
   const dirBlocks = Object.entries(dirs).map(([nr, ds]) => { const p = roster.find(x => x.nr === nr); const k = ds.filter(d => d.q === '#').length, e = ds.filter(d => d.q === '=' || d.q === '/').length
     return `<div class="pl"><div class="nm">${esc(nr)} ${esc(p?.name || '')}</div>${courtSvg(ds)}<div class="sm">${ds.length} aanv · ${k} kill · ${e} fout · eff ${ds.length ? Math.round(100 * (k - e) / ds.length) : 0}%</div></div>` }).join('')
+  const dist = distribution(scout)
+  const distCourt = r => { const pc = z => r.total ? Math.round(100 * r.zones[z] / r.total) : 0; const back = r.total ? Math.round(100 * (r.zones[1] + r.zones[5] + r.zones[6]) / r.total) : 0
+    const cell = (x, y, v) => `<rect x="${x}" y="${y}" width="38" height="28" fill="rgba(36,86,184,${(v / 100) * .9 + .05})" stroke="#fff"/><text x="${x + 19}" y="${y + 18}" text-anchor="middle" font-size="11" font-weight="700" fill="${v > 45 ? '#fff' : '#111'}">${v}%</text>`
+    return `<svg viewBox="0 0 120 70" width="120" height="70"><rect x="1" y="1" width="118" height="68" fill="#FBE7D3" stroke="#333"/><line x1="1" y1="2" x2="119" y2="2" stroke="#000" stroke-width="3"/>${cell(2, 4, pc(4))}${cell(41, 4, pc(3))}${cell(80, 4, pc(2))}<rect x="2" y="34" width="116" height="34" fill="rgba(36,86,184,${(back / 100) * .9 + .05})" stroke="#fff"/><text x="60" y="55" text-anchor="middle" font-size="11" font-weight="700">achter ${back}%</text></svg>` }
+  const distBlocks = dist.filter(r => r.total).map(r => `<div class="pl"><div class="nm">R${r.rot + 1} · ${r.total} aanv.</div>${distCourt(r)}<div class="sm">${r.goodN ? `goede bal: z4 ${Math.round(100 * r.good[4] / r.goodN)}% · z3 ${Math.round(100 * r.good[3] / r.goodN)}% · z2 ${Math.round(100 * r.good[2] / r.goodN)}%` : ''}${r.pas.length ? `<br>pas ${Math.round(100 * r.pas.filter(q => q === '#' || q === '+').length / r.pas.length)}% goed` : ''}</div></div>`).join('')
   return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Scouting ${esc(match.opp)}</title><style>
     body{font:11px/1.35 Helvetica,Arial,sans-serif;color:#111;margin:14mm 12mm}h1{font-size:18px;margin:0}h2{font-size:13px;margin:14px 0 6px;border-bottom:1px solid #999;padding-bottom:2px}
     .sub{color:#555;margin:2px 0 10px}table{border-collapse:collapse;width:100%;margin-bottom:8px}th,td{border:1px solid #bbb;padding:3px 5px;text-align:right;font-size:10.5px}th:first-child,td:first-child{text-align:left}
@@ -37,6 +42,7 @@ export function reportHtml(match, scout, roster, teamName) {
     <h2>Side-out en break per rotatie</h2><table><thead><tr><th>Rotatie</th><th>Server (set 1)</th><th>Ontvangen</th><th>Side-out</th><th>SO%</th><th>Geserveerd</th><th>Break</th><th>Break%</th></tr></thead><tbody>
     ${rot.map(r => `<tr><td>R${r.rot + 1}</td><td>${esc(r.server)}</td><td>${r.recv}</td><td>${r.so}</td><td>${r.soPct ?? ''}${r.soPct != null ? '%' : ''}</td><td>${r.serve}</td><td>${r.brk}</td><td>${r.brkPct ?? ''}${r.brkPct != null ? '%' : ''}</td></tr>`).join('')}</tbody></table>
     <div class="leg">Rotatie 1 = startopstelling; elke side-out draait één positie door. SO% = gewonnen rallies bij ontvangst; Break% = gewonnen rallies op eigen opslag.</div>
+    ${distBlocks ? `<h2>Spelverdeling ${esc(teamName)} per rotatie</h2><div class="grid">${distBlocks}</div><div class="leg">Aandeel van de aanvallen per zone, per rotatie (R1 = startopstelling). Eronder de verdeling na een goede eerste bal (# of +) en de kwaliteit van de pas als die getagd is.</div>` : ''}
     ${dirBlocks ? `<h2>Aanvalsrichtingen ${esc(teamName)}</h2><div class="grid">${dirBlocks}</div><div class="leg">Pijl van aanvalszone naar landingszone bij de tegenstander. Groen = punt, grijs = in spel, rood = fout/geblokt. Punt = aanval zonder landingszone.</div>` : ''}
     <h2>${esc(match.opp)}</h2>${tbl('them')}
     <div class="leg">Rec pos% = receptie # of +. Eff = (kills − fouten − geblokt) / aanvallen. Gegenereerd met Scouting (TripleSpark).</div>
