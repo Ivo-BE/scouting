@@ -207,3 +207,9 @@
   .scout.bench{grid-template-columns:1fr}
 
   .scout .pos.oppin input{width:56px;text-align:center;font:700 18px "Barlow Condensed";padding:4px;border-radius:6px;border:2px solid #fff;background:rgba(255,255,255,.9);color:var(--ink)}
+
+  .scout .players{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+  .scout .players button{display:grid;gap:0;padding:5px 8px;min-width:64px;text-align:center;line-height:1.1}
+  .scout .players button b{font:700 16px "Barlow Condensed"}.scout .players button small{font-size:10px;color:var(--mute)}
+  .scout .players button.on small{color:inherit}.scout .players button.libbtn{border-style:dashed}.scout .players button.dim{opacity:.45}
+  .scout.bench .players button{padding:9px 10px;min-width:78px}.scout.bench .players button b{font-size:20px}

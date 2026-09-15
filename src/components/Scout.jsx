@@ -50,6 +50,11 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const d = derive(match, scout, set)
   const now = () => v.current?.currentTime || 0
   const playerAt = (team, zone) => team === 'us' ? ourPlayerAt(match, roster, scout, set, d, zone, { libFor, forceLib: pending.lib }) : oppPlayerAt(scout, set, d, zone)
+  // zone waar een speler volgens de rotatie staat (of null als ze niet op het veld staat)
+  const zoneOf = id => { for (const z of [1, 2, 3, 4, 5, 6]) { const p = ourPlayerAt(match, roster, scout, set, d, z, { libFor, forceLib: false }); if (p?.id === id) return z } return null }
+  const onCourtIds = new Set([1, 2, 3, 4, 5, 6].map(z => ourPlayerAt(match, roster, scout, set, d, z, { libFor, forceLib: false })?.id).filter(Boolean))
+  const libId = match.sets[set].libero
+  const pickPlayer = p => { const z = zoneOf(p.id) || (p.id === libId ? (pending.zone || 6) : pending.zone); setPending(pp => ({ ...pp, team: 'us', player: p, zone: z, lib: false })) }
   const push = e => setScout(s => ({ ...s, events: [...s.events, { id: uid(), set, t: now(), ...e }] }))
 
   function tag(q) {
@@ -63,7 +68,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       setScout(s => ({ ...s, oppServers: { ...s.oppServers, [set]: nsv }, oppFirstRot: sv.length === 0 ? { ...s.oppFirstRot, [set]: d.rotThem } : s.oppFirstRot }))
       commit(q, { nr, name: '#' + nr }); return
     }
-    commit(q, playerAt(p.team, p.zone))
+    commit(q, p.player && p.team === 'us' ? { id: p.player.id, nr: p.player.nr, name: p.player.name, lib: p.player.id === libId } : playerAt(p.team, p.zone))
   }
   function commit(q, pl) {
     const p = pending
@@ -226,12 +231,15 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <div className={'step' + (pending.team ? '' : ' inactive')}><div className="hint">{bench ? 'Actie' : '2. Actie'}</div>
         <div className="row">{ACTIONS.filter(([a]) => !bench || a !== 'pas' || tagPas).map(([a, k]) => <button key={a} className={pending.act === a ? 'on' : ''} onClick={() => setPending(p => ({ ...p, act: a, zone: a === 'opslag' ? 1 : p.zone }))}>{a} {!bench && <kbd>{k}</kbd>}</button>)}</div>
         </div><div className={'step' + (pending.act ? '' : ' inactive')}><div className="hint">{bench ? 'Speler' : '3. Speler / zone'} {pending.act === 'opslag' ? '(opslag is altijd zone 1)' : <>(of <kbd>1</kbd>–<kbd>6</kbd>)</>}</div>
+        {(pending.team || 'us') === 'us' && <div className="players">{[...roster].sort((a, b) => (+a.nr || 99) - (+b.nr || 99)).map(p => { const on = onCourtIds.has(p.id) || p.id === libId; if (!on && !bench) return null
+          return <button key={p.id} className={(pending.player?.id === p.id ? 'on' : '') + (p.id === libId ? ' libbtn' : '') + (on ? '' : ' dim')} onClick={() => pickPlayer(p)} title={p.id === libId ? 'Libero' : on ? `Staat op zone ${zoneOf(p.id)}` : 'Op de bank'}><b>{p.nr}</b><small>{p.name}</small></button> })}</div>}
         <div className="minicourt">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const team = pending.team || 'us'; const pl = playerAt(team, z); const ok = !pending.act || !ZONES_FOR[pending.act] || ZONES_FOR[pending.act].includes(z)
-          return <button key={dd} className={(pending.zone === z ? 'on' : '') + (pl?.lib ? ' lib' : '') + (ok ? '' : ' dim')} title={ok ? '' : 'Ongebruikelijk voor deze actie, maar mogelijk'} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>z{z} · {p[0]}</small><b>{pl ? (pl.nr ? pl.nr + ' ' : '') + (pl.name || '') : '?'}</b></button> })}</div>
+          return <button key={dd} className={(pending.zone === z ? 'on' : '') + (pl?.lib ? ' lib' : '') + (ok ? '' : ' dim')} title={ok ? '' : 'Ongebruikelijk voor deze actie, maar mogelijk'} onClick={() => setPending(pp => ({ ...pp, team, zone: z, player: null, lib: false }))}><small>z{z} · {p[0]}</small><b>{pl ? (pl.nr ? pl.nr + ' ' : '') + (pl.name || '') : '?'}</b></button> })}</div>
         </div><div className={'step' + (pending.act && pending.zone ? '' : ' inactive')}><div className="hint">{bench ? 'Hoe ging het?' : '4. Kwaliteit'} <button className="ghost qhelp" onClick={() => setModal('qhelp')}>?</button></div>
         <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>)
           : QUALITIES.map(([q, t]) => { const lbl = pending.act ? Q_LABELS[pending.act][q] : t; if (pending.act && lbl === null) return null
             return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div></div>
+        {pending.player && <div className="hint">Gekozen: {pending.player.nr} {pending.player.name} · zone {pending.zone || '?'} — tik op het veldje als de actie ergens anders was</div>}
         <div className="hint">{smart && !pending.act && rally.length ? 'Bal bij ' + match.opp + ' — tik de volgende actie van ' + teamName + ' (verdediging, blok, aanval) of het punt. ' : ''}{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && (pending.act === 'opslag' || pending.act === 'pas') && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
       </div>
       <div className="row"><button className="us" onClick={() => point('us')}>Punt {teamName} <kbd>Q</kbd></button><button className="them" onClick={() => point('them')}>Punt {match.opp} <kbd>E</kbd></button><button onClick={undo}>↶ Ongedaan <kbd>Z</kbd></button></div>
