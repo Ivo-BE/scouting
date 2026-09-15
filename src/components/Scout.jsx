@@ -22,16 +22,28 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const [oppForm, setOppForm] = useState(null)        // formulier rugnummers tegenstander: {1:'9',2:'4',...}
   const [smart, setSmart] = useState(true)            // slim taggen: volgende stap klaarzetten, punten automatisch
   const [tagPas, setTagPas] = useState(() => localStorage.getItem('scout:tagPas') === '1')
+  const [ownOnly, setOwnOnly] = useState(() => localStorage.getItem('scout:ownOnly') !== '0')   // standaard aan: nooit een actie van de tegenstander voorstellen
   const v = useRef(); const saveT = useRef()
 
-  useEffect(() => { setScout(fixScout(match?.scout)); setSet(0) }, [matchId])
-  const startStep = serve => bench ? benchStart(serve) : serveStep(serve)
-  useEffect(() => { if (smart && match) setPending({ ...startStep(derive(match, fixScout(match.scout), set).serve), lib: false }) }, [matchId, set, smart, bench])
-  useEffect(() => {              // autosave 1 s na laatste wijziging
+  const LS = id => 'scout:draft:' + id
+  useEffect(() => {
     if (!match) return
-    clearTimeout(saveT.current); saveT.current = setTimeout(() => onSaveScout(match, scout), 1000)
+    let sc = fixScout(match.scout)
+    try { const loc = JSON.parse(localStorage.getItem(LS(match.id)) || 'null'); if (loc && (loc.events?.length || 0) > (sc.events?.length || 0)) { sc = fixScout(loc); flash('Niet-opgeslagen scouting uit deze browser hersteld'); onSaveScout(match, sc) } } catch {}
+    setScout(sc); setSet(0)
+  }, [matchId])
+  const dirty = useRef(false)
+  useEffect(() => { const h = e => { if (dirty.current) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h) }, [])
+  const startStep = serve => (bench || ownOnly) ? benchStart(serve) : serveStep(serve)
+  useEffect(() => { if (smart && match) setPending({ ...startStep(derive(match, fixScout(match.scout), set).serve), lib: false }) }, [matchId, set, smart, bench, ownOnly])
+  useEffect(() => {              // spiegel in de browser meteen; database kort daarna
+    if (!match) return
+    try { localStorage.setItem(LS(match.id), JSON.stringify(scout)) } catch {}
+    dirty.current = true
+    clearTimeout(saveT.current); saveT.current = setTimeout(async () => { await onSaveScout(match, scout); dirty.current = false }, 400)
     return () => clearTimeout(saveT.current)
   }, [scout])
+  useEffect(() => { const h = () => { if (document.hidden && dirty.current && match) { clearTimeout(saveT.current); onSaveScout(match, scout); dirty.current = false } }; document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h) }, [scout, match])
 
   if (!match) return <section className="panel"><h2>Scout</h2><p className="hint">Bewaar eerst een wedstrijd met startopstellingen; die kies je hier dan om te analyseren.</p></section>
   const d = derive(match, scout, set)
@@ -58,7 +70,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     setScout(s => ({ ...s, events: [...s.events, { id, set, t: now(), type: 'touch', team: p.team, act: p.act, zone: p.zone, q, playerId: pl?.id || '', playerNr: pl?.nr || '', lib: !!pl?.lib, rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them }] }))
     const ev = { team: p.team, act: p.act, q }
     if (smart) {
-      const n = bench ? benchNext(ev, { tagPas }) : nextStep(ev, { tagPas })
+      const n = (bench || (ownOnly && p.team === 'us')) ? benchNext(ev, { tagPas }) : nextStep(ev, { tagPas })
       if (n.point) { pointAfter(n.point, d); }
       else if (n.askBlock) { setAskBlock({ team: p.team === 'us' ? 'them' : 'us' }); setPending({ team: null, act: null, zone: null, lib: false }) }
       else if (n.pending && n.pending.act === null) setPending({ ...n.pending, lib: false })
@@ -110,6 +122,8 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   useEffect(() => {
     const h = e => {
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) || modal) return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return }
+      if (e.metaKey || e.ctrlKey || e.altKey) return
       if (askBlock) { if ('234'.includes(e.key) && e.key) blockBy(+e.key); else blockBy(null); return }
       if (askTo) { if ('123456'.includes(e.key) && e.key) { setTo(+e.key); return } setAskTo(null); if (e.key === 'Escape') return }
       const k = e.key.toLowerCase(); const vid = v.current
@@ -180,6 +194,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <button className={bench ? 'on' : ''} onClick={() => setBench(b => !b)} title="Live op de bank: geen video, grote knoppen, 3 niveaus">Bankmodus</button>
         <button className={smart ? 'on' : ''} onClick={() => setSmart(v => !v)} title="Zet na elke tag de logische volgende stap klaar en kent punten automatisch toe">Slim</button>
         <button className={tagPas ? 'on' : ''} onClick={() => setTagPas(v => { localStorage.setItem('scout:tagPas', v ? '' : '1'); return !v })} title="Na elke receptie/verdediging de pas klaarzetten, met de setter al ingevuld">Pas taggen</button>
+        <button className={ownOnly ? 'on' : ''} onClick={() => setOwnOnly(v => { localStorage.setItem('scout:ownOnly', v ? '0' : '1'); return !v })} title="Aan: de app stelt nooit een actie van de tegenstander voor; de bal bij hen is een grijs puntje. Uit: na jouw aanval staat hun verdediging klaar">Eigen ploeg</button>
         <button onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([scoutCsv(scout, teamName, match.opp)], { type: 'text/csv;charset=utf-8' })); a.download = `scout-${match.opp}.csv`; a.click() }}>CSV</button>
       </div>
       <video ref={v} controls playsInline style={{ display: bench ? 'none' : '' }} />
@@ -208,7 +223,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>)
           : QUALITIES.map(([q, t]) => { const lbl = pending.act ? Q_LABELS[pending.act][q] : t; if (pending.act && lbl === null) return null
             return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div></div>
-        <div className="hint">{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && (pending.act === 'opslag' || pending.act === 'pas') && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
+        <div className="hint">{smart && !pending.act && rally.length ? 'Bal bij ' + match.opp + ' — tik de volgende actie van ' + teamName + ' (verdediging, blok, aanval) of het punt. ' : ''}{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && (pending.act === 'opslag' || pending.act === 'pas') && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
       </div>
       <div className="row"><button className="us" onClick={() => point('us')}>Punt {teamName} <kbd>Q</kbd></button><button className="them" onClick={() => point('them')}>Punt {match.opp} <kbd>E</kbd></button><button onClick={undo}>↶ Ongedaan <kbd>Z</kbd></button></div>
       <div className="log">{ev.map(e => <div key={e.id} className={e.type === 'point' ? 'rally' : ''} onClick={() => { if (v.current) v.current.currentTime = Math.max(0, e.t - 2) }}>
