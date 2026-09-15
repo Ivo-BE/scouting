@@ -74,3 +74,33 @@ export function scoutCsv(scout, teamName, oppName) {
   scout.events.forEach(e => rows.push([e.set + 1, t(e.t), e.type, e.team === 'us' ? teamName : oppName, e.act || e.what || '', e.zone || '', e.q || '', e.playerNr || '', e.lib ? 'ja' : '', e.us ?? '', e.them ?? '', e.rotUs ?? '', e.rotThem ?? '']))
   return '\ufeff' + rows.map(r => r.map(q).join(';')).join('\r\n')
 }
+
+// --- side-out per rotatie (ontvangen rallies gewonnen / ontvangen rallies), en break per rotatie
+export function rotationStats(match, scout, roster) {
+  const rows = Array.from({ length: 6 }, (_, r) => ({ rot: r, recv: 0, so: 0, serve: 0, brk: 0 }))
+  match.sets.forEach((st, setIdx) => {
+    let serve = scout.serveFirst[setIdx] || 'us', rotUs = 0, rotThem = 0
+    scout.events.filter(e => e.set === setIdx).forEach(e => {
+      if (e.type === 'adj') { if (e.what === 'serve') serve = serve === 'us' ? 'them' : 'us'; if (e.what === 'rotUs') rotUs = (rotUs + 1) % 6; if (e.what === 'rotThem') rotThem = (rotThem + 1) % 6; return }
+      if (e.type !== 'point') return
+      const row = rows[rotUs]
+      if (serve === 'them') { row.recv++; if (e.team === 'us') row.so++ } else { row.serve++; if (e.team === 'us') row.brk++ }
+      if (e.team === 'us') { if (serve === 'them') { serve = 'us'; rotUs = (rotUs + 1) % 6 } }
+      else { if (serve === 'us') { serve = 'them'; rotThem = (rotThem + 1) % 6 } }
+    })
+  })
+  // wie serveert in deze rotatie (starter op I bij rotatie r, uit set 1)
+  const st = match.sets[0]
+  rows.forEach(r => { const k = baseIndex(r.rot, ZONE_TO_D[1]); const p = roster.find(x => x.id === st.pos[k]); r.server = p ? (p.nr || p.name) : '' })
+  return rows.map(r => ({ ...r, soPct: r.recv ? Math.round(100 * r.so / r.recv) : null, brkPct: r.serve ? Math.round(100 * r.brk / r.serve) : null }))
+}
+// --- aanvalsrichtingen per speler: [{from, to, q}]
+export function attackDirections(scout, team) {
+  const by = {}
+  scout.events.filter(e => e.type === 'touch' && e.team === team && e.act === 'aanval' && e.zone).forEach(e => {
+    const key = e.playerNr || '?'; (by[key] || (by[key] = [])).push({ from: e.zone, to: e.to || null, q: e.q })
+  })
+  return by
+}
+// --- bankmodus: 3 niveaus -> symbolen
+export const SIMPLE_Q = { receptie: [['goed', '+'], ['matig', '!'], ['fout', '=']], aanval: [['punt', '#'], ['in spel', '!'], ['fout', '=']], opslag: [['ace', '#'], ['in spel', '!'], ['fout', '=']] }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -27,4 +27,14 @@ test('tegenstander: opslagvolgorde geeft rotatie', () => {
   sc.events = [pt('us'), pt('them')]                // zij verliezen, winnen terug -> zij draaien
   d = derive(match, sc, 0); assert.equal(d.rotThem, 1)
   assert.equal(oppPlayerAt(sc, 0, d, 1).nr, '4')    // #4 serveert nu
+})
+
+test('side-out per rotatie', () => {
+  // zij serveren; wij winnen (so in rot 0), wij winnen op eigen opslag (break in rot 1), zij winnen (rot 1 break mislukt)
+  const sc = { ...emptyScout(), serveFirst: { 0: 'them' }, events: [pt('us'), pt('us'), pt('them'), pt('them')] }
+  const rows = rotationStats(match, sc, roster)
+  assert.deepEqual([rows[0].recv, rows[0].so], [1, 1])
+  assert.deepEqual([rows[1].serve, rows[1].brk], [2, 1])
+  assert.deepEqual([rows[1].recv, rows[1].so], [1, 0])
+  assert.equal(rows[0].server, '10')
 })

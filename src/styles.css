@@ -158,3 +158,9 @@
   .sheet h3{margin-top:6px}
 
   .io button.warnbtn{border-color:var(--warn);color:var(--warn)}
+
+  .scout .benchhint{background:var(--zone);color:#fff;border-radius:8px;padding:12px 14px;font:600 17px "Barlow Condensed";margin:6px 0}
+  .scout.bench .steps button{padding:16px 10px;font-size:18px}.scout.bench .q button{font-size:20px}
+  .scout.bench .row>button.us,.scout.bench .row>button.them{padding:18px 10px;font-size:18px}
+  .scout.bench .log{max-height:20vh}
+  .modal .court{margin:8px 0}
