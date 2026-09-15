@@ -28,6 +28,9 @@ export function fixMatch(m) {
   return { ...m, sets }
 }
 
+// --- gespeelde set: bevestigd of met een stand
+export const playedSet = st => !!(st.locked || st.us !== '' || st.them !== '')
+
 // --- huidige zes + rotatie
 export const lineup = st => { const l = [...st.pos]; st.subs.forEach(w => { l[w.k] = w.in }); return l }
 export const dispIndex = (st, k) => R[(R.indexOf(k) + st.rot) % 6]           // startslot -> zichtbare positie
@@ -73,7 +76,7 @@ export function reportLines(m, roster, teamName) {
   const player = id => roster.find(p => p.id === id)
   const label = p => p ? `${p.nr ? p.nr + ' ' : ''}${p.name}` : '–'
   const nm = id => label(player(id))
-  const sets = m.sets.filter(st => st.pos.some(Boolean) || st.us !== '' || st.them !== '')
+  const sets = m.sets.filter(playedSet)
   const { w, l, over } = matchState(m)
   const L = [`${teamName || 'Ploeg'} – ${m.opp} (${m.home ? 'thuis' : 'uit'}), ${fmt(m.date)}`]
   if (sets.some(st => st.us !== '')) L.push(`Uitslag: ${w}–${l}${over ? (w > l ? ' gewonnen' : ' verloren') : ''}  (${sets.map(st => `${st.us || '?'}-${st.them || '?'}`).join(', ')})`)
@@ -91,7 +94,7 @@ export function stats(roster, matches) {
   const S = {}
   roster.forEach(p => { S[p.id] = { p, matches: new Set(), started: 0, subbed: 0, libero: 0, pos: { I: 0, II: 0, III: 0, IV: 0, V: 0, VI: 0 } } })
   matches.forEach(m => m.sets.forEach(st => {
-    if (!st.pos.some(Boolean)) return
+    if (!playedSet(st) || !st.pos.some(Boolean)) return
     st.pos.forEach((id, d) => { if (S[id]) { S[id].started++; S[id].pos[POS[d][0]]++; S[id].matches.add(m.id) } })
     st.subs.forEach(w => { if (S[w.in] && w.in !== st.pos[w.k]) { S[w.in].subbed++; S[w.in].matches.add(m.id) } })
     if (S[st.libero]) { S[st.libero].libero++; S[st.libero].matches.add(m.id) }
@@ -103,7 +106,7 @@ export function csv(matches, roster) {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`
   const rows = [['Datum','Tegenstander','Thuis/Uit','Set','Wij','Zij','I','II','III','IV','V','VI','Libero','Wissels','Time-outs','Notities']]
   ;[...matches].sort((a, b) => a.date.localeCompare(b.date)).forEach(m => m.sets.forEach((st, i) => {
-    if (!st.pos.some(Boolean) && st.us === '' && st.them === '') return
+    if (!playedSet(st)) return
     rows.push([m.date, m.opp, m.home ? 'thuis' : 'uit', i + 1, st.us, st.them, ...ROMAN.map(r => nm(st.pos[POS.findIndex(x => x[0] === r)])), nm(st.libero),
       st.subs.map(w => `${nm(w.out)} uit, ${nm(w.in)} in${w.score ? ' bij ' + w.score : ''}`).join('; '), st.timeouts.join(', '), st.notes])
   }))

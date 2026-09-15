@@ -1,5 +1,5 @@
 import Modal from './Modal.jsx'
-import { reportLines, matchState, POS } from '../lib/volley.js'
+import { reportLines, matchState, POS, playedSet } from '../lib/volley.js'
 
 export default function Report({ match, roster, teamName, onClose, flash }) {
   const txt = reportLines(match, roster, teamName).join('\n')
@@ -7,7 +7,7 @@ export default function Report({ match, roster, teamName, onClose, flash }) {
   function print() {
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const nm = id => { const p = roster.find(x => x.id === id); return p ? `${p.nr ? p.nr + ' ' : ''}${p.name}` : '–' }
-    const sets = match.sets.filter(st => st.pos.some(Boolean) || st.us !== '' || st.them !== ''); const { w, l } = matchState(match)
+    const sets = match.sets.filter(playedSet); const { w, l } = matchState(match)
     const court = st => `<table class="c"><tr>${[0, 1, 2].map(d => `<td><small>${POS[d][0]}</small>${esc(nm(st.pos[d]))}</td>`).join('')}</tr><tr>${[3, 4, 5].map(d => `<td><small>${POS[d][0]}</small>${esc(nm(st.pos[d]))}</td>`).join('')}</tr></table>`
     const html = `<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Verslag ${esc(match.opp)}</title><style>
       body{font:12px/1.4 Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm}h1{font-size:20px;margin:0 0 2px}h2{font-size:14px;margin:14px 0 4px;border-bottom:1px solid #999;padding-bottom:2px}

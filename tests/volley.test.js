@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { newSet, lineup, allowedSubs, setWinner, matchState, snap, undo, dispIndex, baseIndex } from '../src/lib/volley.js'
+import { newSet, lineup, allowedSubs, setWinner, matchState, snap, undo, dispIndex, baseIndex, stats, playedSet } from '../src/lib/volley.js'
 
 const roster = ['a','b','c','d','e','f','g','h','L'].map(id => ({ id, nr: id, name: id, lib: id === 'L' }))
 const started = () => ({ ...newSet(), pos: ['a','b','c','d','e','f'], libero: 'L', locked: true })
@@ -38,4 +38,13 @@ test('undo herstelt stand, time-out en wissel', () => {
 test('matchState telt tot 3', () => {
   const m = { sets: [{ us: '25', them: '20' }, { us: '25', them: '20' }, { us: '20', them: '25' }, { us: '25', them: '23' }, { us: '', them: '' }] }
   assert.deepEqual(matchState(m), { w: 3, l: 1, over: true })
+})
+
+test('onbevestigde, voorbereide sets tellen niet mee', () => {
+  const r = [{ id: 'a', nr: '1', name: 'A' }]
+  const played = { ...newSet(), pos: ['a', '', '', '', '', ''], locked: true }
+  const prepared = { ...newSet(), pos: ['a', '', '', '', '', ''], locked: false }
+  assert.equal(playedSet(played), true); assert.equal(playedSet(prepared), false)
+  const st = stats(r, [{ id: 'm', sets: [played, prepared, prepared] }])
+  assert.equal(st[0].started, 1)
 })

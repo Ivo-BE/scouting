@@ -40,6 +40,8 @@ export default function SetCard({ i, st, match, roster, active, update, onNext, 
       </> : <>
         <button className="primary" disabled={!full} onClick={() => update({ ...st, locked: true })}>Opstelling bevestigen</button>
         {!full && <span className="hint">Vul eerst alle zes posities in</span>}
+        {used.length > 0 && <button className="ghost" onClick={() => { if (confirm(`Voorbereide opstelling van set ${i + 1} wissen?`)) update({ ...st, pos: ['', '', '', '', '', ''], libero: '', us: '', them: '', notes: '' }) }}>Wis set</button>}
+        <span className="hint">Niet bevestigd = telt niet mee in statistieken en verslag</span>
       </>}
     </div>
     {winner && <div className={'setdone ' + winner}>Set {winner === 'us' ? 'gewonnen' : 'verloren'} {st.us || 0}-{st.them || 0} · stand in sets {ms.w}–{ms.l}

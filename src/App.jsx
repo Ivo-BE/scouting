@@ -25,7 +25,7 @@ export default function App() {
   const fileRef = useRef(); const backupRef = useRef()
 
   const flash = t => { setMsg(t); setTimeout(() => setMsg(m => m === t ? '' : m), 2500) }
-  const fail = e => { console.error(e); setErr(e.message || String(e)); setTimeout(() => setErr(''), 6000) }
+  const fail = e => { console.error(e); setErr(e.message || String(e)); setTimeout(() => setErr(''), 12000) }
 
   useEffect(() => {
     if (!configured) return
@@ -64,15 +64,23 @@ export default function App() {
   }
   async function restore(e) {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return
-    try { const b = JSON.parse(await f.text())
+    try { const b = JSON.parse((await f.text()).replace(/^\uFEFF/, ''))
+      if (b.format !== 'scouting-backup' && Array.isArray(b.roster)) { fail(new Error(`${f.name} is een export van de oude app — gebruik "Importeer oude export"`)); return }
       if (!confirm(`Backup van ${b.team?.name || '?'} (${b.exported_at?.slice(0, 10)}) terugzetten in ${team.name}? Bestaande spelers en wedstrijden met hetzelfde id worden overschreven; er wordt niets verwijderd.`)) return
       const r = await db.restoreBackup(team.id, b); setRoster(await db.loadPlayers(team.id)); setMatches(await db.loadMatches(team.id)); flash(`${r.players} spelers en ${r.matches} wedstrijden hersteld`) } catch (x) { fail(x) }
   }
   const backupOld = !lastBackup || (Date.now() - new Date(lastBackup).getTime()) > 30 * 86400000
   async function importJson(e) {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return
-    try { const j = JSON.parse(await f.text()); if (!Array.isArray(j.roster) || !Array.isArray(j.matches)) throw new Error('Geen geldige export')
-      if (!confirm(`${j.roster.length} spelers en ${j.matches.length} wedstrijden toevoegen aan ${team.name}?`)) return
+    let j; try { j = JSON.parse((await f.text()).replace(/^\uFEFF/, '')) } catch { fail(new Error(`${f.name} is geen JSON-bestand`)); return }
+    try {
+      if (j.format === 'scouting-backup') {           // backup van deze app -> herstellen
+        if (!confirm(`${f.name} is een backup van deze app (${j.exported_at?.slice(0, 10)}). Terugzetten in ${team.name}?`)) return
+        const r = await db.restoreBackup(team.id, j); setRoster(await db.loadPlayers(team.id)); setMatches(await db.loadMatches(team.id)); flash(`${r.players} spelers en ${r.matches} wedstrijden hersteld`); return
+      }
+      if (!Array.isArray(j.roster)) throw new Error(`${f.name}: geen spelerslijst (roster) gevonden — is dit de export van de oude Opstellingen-app? Die heet opstellingen-….json`)
+      if (!Array.isArray(j.matches)) j.matches = []
+      if (!confirm(`${j.roster.length} spelers en ${j.matches.length} wedstrijden uit ${f.name} toevoegen aan ${team.name}?`)) return
       const r = await db.importLegacy(team.id, j); setRoster(await db.loadPlayers(team.id)); setMatches(await db.loadMatches(team.id)); flash(`${r.players} spelers en ${r.matches} wedstrijden geïmporteerd`) } catch (x) { fail(x) }
   }
 

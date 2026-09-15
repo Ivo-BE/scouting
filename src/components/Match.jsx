@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SetCard from './SetCard.jsx'
-import { setWinner } from '../lib/volley.js'
+import { setWinner, matchState } from '../lib/volley.js'
 
 export default function Match({ match, setMatch, roster, onSave, onNew, onReport, flash }) {
   const [active, setActive] = useState(0)
@@ -10,9 +10,14 @@ export default function Match({ match, setMatch, roster, onSave, onNew, onReport
     const sets = match.sets.map((s, j) => j === i + 1 && !n.pos.some(Boolean) ? { ...s, pos: [...cur.pos], libero: cur.libero } : s)
     setMatch({ ...match, sets }); setActive(i + 1); document.getElementById('match')?.scrollIntoView({ behavior: 'smooth' })
   }
+  const over = matchState(match).over
   function copySet1() {
     const s1 = match.sets[0]
-    setMatch({ ...match, sets: match.sets.map((s, j) => j && !s.subs.length ? { ...s, pos: [...s1.pos], libero: s1.libero } : s) }); flash('Set 1 gekopieerd naar set 2–5')
+    const targets = match.sets.map((s, j) => j).filter(j => j && !match.sets[j].locked && !match.sets[j].subs.length)
+    if (!targets.length) { flash('Geen onbevestigde sets om naar te kopiëren'); return }
+    const filled = targets.filter(j => match.sets[j].pos.some(Boolean))
+    if (filled.length && !confirm(`Startopstelling van set 1 kopiëren naar set ${targets.map(j => j + 1).join(', ')}? Set ${filled.map(j => j + 1).join(', ')} ${filled.length === 1 ? 'heeft' : 'hebben'} al een opstelling; die wordt overschreven. Bevestigde sets blijven ongemoeid.`)) return
+    setMatch({ ...match, sets: match.sets.map((s, j) => targets.includes(j) ? { ...s, pos: [...s1.pos], libero: s1.libero } : s) }); flash(`Set 1 gekopieerd naar set ${targets.map(j => j + 1).join(', ')}`)
   }
   return <section className="panel" id="match">
     <div className="matchhead">
@@ -25,7 +30,7 @@ export default function Match({ match, setMatch, roster, onSave, onNew, onReport
     <div className="actions">
       <button className="primary" onClick={onSave}>Bewaar wedstrijd</button>
       <button onClick={onNew}>Nieuwe wedstrijd</button>
-      <button onClick={copySet1}>Set 1 → alle sets</button>
+      <button onClick={copySet1} disabled={over} title={over ? 'Wedstrijd is beslist' : 'Kopieert naar onbevestigde sets zonder wissels'}>Set 1 → open sets</button>
       <button onClick={onReport}>Verslag</button>
     </div>
   </section>
