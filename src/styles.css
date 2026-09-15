@@ -170,7 +170,7 @@
   .scout .minicourt button small{font-size:10px;opacity:.9}.scout .minicourt button b{font:700 15px "Barlow Condensed"}
   .scout .minicourt button.on{outline:3px solid #fff;outline-offset:-3px;background:#F5A25E}
   .scout .minicourt button.lib{background:rgba(255,255,255,.28)}
-  .scout .minicourt button:disabled{opacity:.3}
+  .scout .minicourt button.dim{opacity:.45}.scout .minicourt button.dim:hover{opacity:.85}
   .scout .minicourt button:nth-child(-n+3){border-bottom:2px dashed #fff}
   .scout .q button{display:grid;gap:0;padding:6px 4px}.scout .q .sym{font-weight:700;font-size:18px}.scout .q small{font-size:10px;color:var(--mute);font-weight:400}
   .scout .q button.on small,.scout .q button:hover small{color:inherit}
