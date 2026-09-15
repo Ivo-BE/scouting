@@ -77,7 +77,7 @@
     <div class="chapters"><button data-ch="0">1 · Instellen</button><button data-ch="1">2 · Eerste punten</button><button data-ch="2">3 · Hele wedstrijd</button><button data-ch="3">4 · Resultaat</button></div></div>
   <div class="app" id="app"><div class="cursor" id="cursor"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9-7 2-3 8z" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg></div></div>
   <div class="caption"><span class="n" id="capn">1</span><p id="cap">…</p></div>
-  <div class="controls"><button id="play">⏸ Pauze</button><button id="restart">↺ Opnieuw</button><span>Snelheid</span><button id="speed">1×</button><div class="bar"><i id="prog"></i></div><span id="stepno"></span></div>
+  <div class="controls"><button id="play">⏸ Pauze</button><button id="restart">↺ Opnieuw</button><span>Snelheid</span><button id="speed">0.5×</button><div class="bar"><i id="prog"></i></div><span id="stepno"></span></div>
 </div>
 
 <script>
@@ -123,8 +123,8 @@ let vsec=0;const vt=()=>`${Math.floor(vsec/60)}:${String(Math.floor(vsec%60)).pa
 
 // ---------- cursor & klik
 function elCenter(sel){const e=$(sel);if(!e)return null;const a=app.getBoundingClientRect(),b=e.getBoundingClientRect();return{x:b.left-a.left+b.width/2,y:b.top-a.top+b.height/2,e}}
-async function click(sel,hold=260){const c=elCenter(sel);if(!c)return;const cur=$('#cursor');cur.style.opacity=1;cur.style.left=(c.x-4)+'px';cur.style.top=(c.y-2)+'px';await wait(480);c.e.classList.add('press');await wait(hold);c.e.classList.remove('press')}
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));let speed=1,paused=false,abort=false;
+async function click(sel,hold=260){const c=elCenter(sel);if(!c)return;const cur=$('#cursor');cur.style.opacity=1;cur.style.transitionDuration=(0.45/Math.max(speed,0.5))+'s';cur.style.left=(c.x-4)+'px';cur.style.top=(c.y-2)+'px';await wait(480);c.e.classList.add('press');await wait(hold);c.e.classList.remove('press')}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));let speed=0.5,paused=false,abort=false;const SPEEDS=[0.25,0.5,0.75,1,1.5];
 async function wait(ms){let t=0;while(t<ms){if(abort)throw'abort';if(!paused){await sleep(40);t+=40*speed}else await sleep(80)}}
 
 // ---------- tag-acties
@@ -206,7 +206,7 @@ async function ch3(){
   const ff=document.createElement('div');ff.className='ff';ff.innerHTML=`<div><div class="big" id="ffs">0–0</div><div class="sets" id="ffsets"></div><div class="cnt" id="ffc">Set 1</div></div>`;app.appendChild(ff);
   S.sets=[];let tags=S.log.filter(l=>!l.r).length;
   for(let si=0;si<4;si++){const [a,b]=target[si];let u=si===0?S.us:0,t=si===0?S.them:0;$('#ffc').textContent=`Set ${si+1}`;
-    while(u<a||t<b){const usW=(u<a)&&(t>=b||Math.random()<a/(a+b));if(usW)u++;else t++;tags+=1+Math.floor(Math.random()*3);$('#ffs').textContent=`${u}–${t}`;$('#ffc').textContent=`Set ${si+1} · ${tags} tags`;await wait(28)}
+    while(u<a||t<b){const usW=(u<a)&&(t>=b||Math.random()<a/(a+b));if(usW)u++;else t++;tags+=1+Math.floor(Math.random()*3);$('#ffs').textContent=`${u}–${t}`;$('#ffc').textContent=`Set ${si+1} · ${tags} tags`;await wait(Math.min(28,28*speed*2))}
     S.sets.push([u,t]);$('#ffsets').innerHTML=S.sets.map(([x,y])=>`<span class="${x>y?'w':'l'}">${x}-${y}</span>`).join('');await wait(700)}
   const w=S.sets.filter(([x,y])=>x>y).length,l=4-w;$('#ffs').textContent=`${w}–${l}`;$('#ffc').textContent=`Wedstrijd gewonnen · ${tags} tags · alles automatisch bewaard`;
   caption(3,`Klaar: ${w}–${l} gewonnen (${S.sets.map(s=>s.join('-')).join(', ')}). Elke tag staat in de database, gedeeld met je collega-coaches.`);await wait(3200);
@@ -251,7 +251,7 @@ async function run(from){abort=true;await sleep(120);abort=false;running=true;
 document.querySelectorAll('.chapters button').forEach(b=>b.onclick=()=>{paused=false;document.getElementById('play').textContent='⏸ Pauze';if(+b.dataset.ch>=2&&(!S||!S.log.length)){reset();S.us=6;S.them=4;S.rot=2;S.opp=['9','4','6','?','?','?']}run(+b.dataset.ch)});
 document.getElementById('play').onclick=e=>{paused=!paused;e.target.textContent=paused?'▶︎ Verder':'⏸ Pauze'};
 document.getElementById('restart').onclick=()=>{paused=false;document.getElementById('play').textContent='⏸ Pauze';run(0)};
-document.getElementById('speed').onclick=e=>{speed=speed===1?1.7:speed===1.7?2.6:1;e.target.textContent=speed+'×'};
+document.getElementById('speed').onclick=e=>{speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%SPEEDS.length];e.target.textContent=speed+'×'};
 run(0);
 </script>
 </body>
