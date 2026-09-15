@@ -70,3 +70,9 @@ test('bankmodus: alleen eigen ploeg, start bij receptie als zij serveren', () =>
   assert.deepEqual(benchNext({ act: 'aanval', q: '/' }), { point: 'them' })
   assert.deepEqual(benchNext({ act: 'receptie', q: '=' }), { point: 'them' })
 })
+
+test('blok: vertraagd -> eigen verdediging, touch out -> punt tegen', () => {
+  assert.deepEqual(nextStep({ team: 'us', act: 'blok', q: '+' }), { pending: { team: 'us', act: 'verdediging', zone: null } })
+  assert.deepEqual(nextStep({ team: 'us', act: 'blok', q: '-' }), { point: 'them' })
+  assert.deepEqual(benchNext({ act: 'blok', q: '+' }), { pending: { team: 'us', act: 'verdediging', zone: null } })
+})

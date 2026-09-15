@@ -103,7 +103,7 @@ export function attackDirections(scout, team) {
   return by
 }
 // --- bankmodus: 3 niveaus -> symbolen
-export const SIMPLE_Q = { receptie: [['goed', '+'], ['matig', '!'], ['fout', '=']], aanval: [['punt', '#'], ['in spel', '!'], ['geblokt', '/'], ['fout', '=']], opslag: [['ace', '#'], ['in spel', '!'], ['fout', '=']], blok: [['blokpunt', '#'], ['in spel', '!'], ['fout', '=']], verdediging: [['goed', '+'], ['matig', '!'], ['fout', '=']], pas: [['goed', '+'], ['matig', '!'], ['fout', '=']] }
+export const SIMPLE_Q = { receptie: [['goed', '+'], ['matig', '!'], ['fout', '=']], aanval: [['punt', '#'], ['in spel', '!'], ['geblokt', '/'], ['fout', '=']], opslag: [['ace', '#'], ['in spel', '!'], ['fout', '=']], blok: [['blokpunt', '#'], ['vertraagd', '+'], ['in spel', '!'], ['touch out', '-'], ['fout', '=']], verdediging: [['goed', '+'], ['matig', '!'], ['fout', '=']], pas: [['goed', '+'], ['matig', '!'], ['fout', '=']] }
 
 // --- labels per actie bij de Data Volley-symbolen; null = symbool niet van toepassing bij deze actie
 export const Q_LABELS = {
@@ -130,7 +130,7 @@ export function nextStep(e, opts = {}) {
     case 'verdediging': return afterFirstTouch()
     case 'pas':         return q === '=' ? { point: other } : { pending: { team: e.team, act: 'aanval', zone: null } }
     case 'aanval':      return q === '#' ? { point: e.team } : q === '=' ? { point: other } : q === '/' ? { askBlock: true } : { pending: { team: other, act: 'verdediging', zone: null } }
-    case 'blok':        return q === '#' ? { point: e.team } : q === '=' ? { point: other } : { pending: { team: null, act: 'verdediging', zone: null } }
+    case 'blok':        return q === '#' ? { point: e.team } : (q === '=' || q === '-') ? { point: other } : q === '+' ? { pending: { team: e.team, act: 'verdediging', zone: null } } : { pending: { team: e.team, act: null, zone: null } }
   }
   return {}
 }
@@ -145,7 +145,7 @@ export function benchNext(e, opts = {}) {
     case 'verdediging': return q === '=' ? { point: 'them' } : opts.tagPas ? { pending: { team: 'us', act: 'pas', zone: null } } : { pending: { team: 'us', act: 'aanval', zone: null } }
     case 'pas':         return q === '=' ? { point: 'them' } : { pending: { team: 'us', act: 'aanval', zone: null } }
     case 'aanval':      return q === '#' ? { point: 'us' } : q === '=' || q === '/' ? { point: 'them' } : { pending: { team: 'us', act: null, zone: null } }
-    case 'blok':        return q === '#' ? { point: 'us' } : q === '=' ? { point: 'them' } : { pending: { team: 'us', act: null, zone: null } }
+    case 'blok':        return q === '#' ? { point: 'us' } : (q === '=' || q === '-') ? { point: 'them' } : q === '+' ? { pending: { team: 'us', act: 'verdediging', zone: null } } : { pending: { team: 'us', act: null, zone: null } }
   }
   return {}
 }
