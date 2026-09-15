@@ -164,3 +164,15 @@
   .scout.bench .row>button.us,.scout.bench .row>button.them{padding:18px 10px;font-size:18px}
   .scout.bench .log{max-height:20vh}
   .modal .court{margin:8px 0}
+
+  .scout .minicourt{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--zone);padding:6px;border-radius:8px;margin:4px 0}
+  .scout .minicourt button{background:var(--court);border:1px solid rgba(255,255,255,.7);color:#fff;border-radius:4px;padding:6px 4px;display:grid;gap:2px;text-align:center;min-height:46px}
+  .scout .minicourt button small{font-size:10px;opacity:.9}.scout .minicourt button b{font:700 15px "Barlow Condensed"}
+  .scout .minicourt button.on{outline:3px solid #fff;outline-offset:-3px;background:#F5A25E}
+  .scout .minicourt button.lib{background:rgba(255,255,255,.28)}
+  .scout .minicourt button:disabled{opacity:.3}
+  .scout .minicourt button:nth-child(-n+3){border-bottom:2px dashed #fff}
+  .scout .q button{display:grid;gap:0;padding:6px 4px}.scout .q .sym{font-weight:700;font-size:18px}.scout .q small{font-size:10px;color:var(--mute);font-weight:400}
+  .scout .q button.on small,.scout .q button:hover small{color:inherit}
+  .scout .qhelp{border:1px solid var(--line);border-radius:50%;width:22px;height:22px;padding:0;font-weight:700;margin-left:4px}
+  .scout.bench .minicourt button{min-height:58px}.scout.bench .minicourt button b{font-size:19px}

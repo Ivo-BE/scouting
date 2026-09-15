@@ -104,3 +104,15 @@ export function attackDirections(scout, team) {
 }
 // --- bankmodus: 3 niveaus -> symbolen
 export const SIMPLE_Q = { receptie: [['goed', '+'], ['matig', '!'], ['fout', '=']], aanval: [['punt', '#'], ['in spel', '!'], ['fout', '=']], opslag: [['ace', '#'], ['in spel', '!'], ['fout', '=']] }
+
+// --- labels per actie bij de Data Volley-symbolen; null = symbool niet van toepassing bij deze actie
+export const Q_LABELS = {
+  opslag:      { '#': 'ace', '+': 'goed', '!': 'neutraal', '-': 'makkelijk', '/': null, '=': 'fout' },
+  receptie:    { '#': 'perfect', '+': 'goed', '!': 'matig', '-': 'slecht', '/': null, '=': 'ace tegen' },
+  pas:         { '#': 'perfect', '+': 'goed', '!': 'matig', '-': 'slecht', '/': null, '=': 'fout' },
+  aanval:      { '#': 'kill', '+': 'goed', '!': 'in spel', '-': 'tegenaanval', '/': 'geblokt', '=': 'fout' },
+  blok:        { '#': 'blokpunt', '+': 'vertraagd', '!': 'in spel', '-': 'touch out', '/': null, '=': 'fout' },
+  verdediging: { '#': 'perfect', '+': 'goed', '!': 'matig', '-': 'slecht', '/': null, '=': 'fout' },
+}
+// welke zones zijn zinvol per actie (null = alle zes)
+export const ZONES_FOR = { opslag: [1], receptie: [1, 5, 6], pas: null, aanval: null, blok: [2, 3, 4], verdediging: [1, 5, 6] }

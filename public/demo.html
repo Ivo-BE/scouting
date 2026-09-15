@@ -35,6 +35,12 @@
   .cell.lib{background:rgba(255,255,255,.18)}
   .cell.bump{animation:bump .5s}
   @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--zone);padding:6px;border-radius:8px;margin:4px 0}
+  .mini .mb{background:var(--court);border:1px solid rgba(255,255,255,.7);color:#fff;border-radius:4px;padding:5px 4px;text-align:center;min-height:44px;transition:all .15s;position:relative}
+  .mini .mb small{display:block;font-size:10px;opacity:.9}.mini .mb b{font:700 15px "Barlow Condensed"}
+  .mini .mb.on{outline:3px solid #fff;outline-offset:-3px;background:#F5A25E}.mini .mb.lib{background:rgba(255,255,255,.28)}.mini .mb.off{opacity:.3}
+  .mini .mb:nth-child(-n+3){border-bottom:2px dashed #fff}
+  .qb{display:grid;gap:0;padding:5px 4px}.qb .sym{font-weight:700;font-size:17px}.qb small{font-size:10px;color:var(--mute)}
   .state{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center}
   .score{font:700 34px "Barlow Condensed";transition:transform .2s}
   .score.bump{animation:bump .4s}
@@ -85,6 +91,8 @@
 const TEAM='VNK Dames A',OPP='Gierle';
 const P={1:'Lien',3:'Sara',5:'Emma',7:'Noor',8:'Lotte',10:'Fien',12:'Julie',14:'Hanne'};
 const POS=['IV','III','II','V','VI','I'];const R=[5,4,3,0,1,2];const Z2D={1:5,2:2,3:1,4:0,5:3,6:4};const D2Z={5:1,2:2,1:3,0:4,3:5,4:6};
+const QL={opslag:{'#':'ace','+':'goed','!':'neutraal','-':'makkelijk','/':null,'=':'fout'},receptie:{'#':'perfect','+':'goed','!':'matig','-':'slecht','/':null,'=':'ace tegen'},pas:{'#':'perfect','+':'goed','!':'matig','-':'slecht','/':null,'=':'fout'},aanval:{'#':'kill','+':'goed','!':'in spel','-':'tegenaanval','/':'geblokt','=':'fout'},blok:{'#':'blokpunt','+':'vertraagd','!':'in spel','-':'touch out','/':null,'=':'fout'},verdediging:{'#':'perfect','+':'goed','!':'matig','-':'slecht','/':null,'=':'fout'}};
+const ZF={opslag:[1],receptie:[1,5,6],blok:[2,3,4],verdediging:[1,5,6]};
 const dispIndex=(rot,k)=>R[(R.indexOf(k)+rot)%6],baseIndex=(rot,d)=>R[(R.indexOf(d)-rot+6)%6];
 let S;
 function reset(){S={setup:false,pos:[1,3,5,7,8,10],lib:14,libFor:8,us:0,them:0,serve:'them',rot:0,pending:{team:null,act:null,zone:null},log:[],opp:['?','?','?','?','?','?'],oppRot:0,set:1,sets:[]}}
@@ -103,7 +111,9 @@ function scoutScreen(){
     <div style="background:#000;border-radius:8px;height:110px;display:grid;place-items:center;color:#889;font:600 14px Barlow" id="video">▶︎ video · <span id="vt">0:00</span></div>
     <h3>1. Wie</h3><div class="row"><span class="btn ${p.team==='us'?'on':''}" data-team="us">${TEAM}</span><span class="btn ${p.team==='them'?'on':''}" data-team="them">${OPP}</span></div>
     <h3>2. Actie</h3><div class="row">${act('opslag')}${act('receptie')}${act('pas')}${act('aanval')}${act('blok')}${act('verdediging')}</div>
-    <h3>3. Zone: tik op het veld · 4. Kwaliteit</h3><div class="row">${['#','+','!','-','/','='].map(q=>`<span class="btn" data-q="${q}" style="font-weight:700;font-size:17px">${q}</span>`).join('')}</div>
+    <h3>3. Speler / zone ${p.act==='opslag'?'(opslag is altijd zone 1)':''}</h3><div class="mini">${POS.map((lbl,d)=>{const z=D2Z[d];const team=p.team||'us';const pl=team==='us'?playerAt(z):{nr:oppAt(z)};const ok=!p.act||!ZF[p.act]||ZF[p.act].includes(z);
+      return `<div class="mb ${p.zone===z?'on':''} ${pl.lib?'lib':''} ${ok?'':'off'}" data-mz="${z}"><small>z${z} · ${lbl}</small><b>${pl.nr}${P[pl.nr]?' '+P[pl.nr]:''}</b></div>`}).join('')}</div>
+    <h3>4. Kwaliteit <span class="btn" style="flex:0;padding:2px 8px;border-radius:50%">?</span></h3><div class="row">${['#','+','!','-','/','='].map(q=>{const l=p.act?QL[p.act][q]:'';if(p.act&&l===null)return'';return `<span class="btn qb" data-q="${q}"><span class="sym">${q}</span><small>${l||''}</small></span>`}).join('')}</div>
     <div class="hint" id="pend">Volgende tag: …</div>
     <div class="row"><span class="btn us" data-pt="us">Punt ${TEAM} <kbd>Q</kbd></span><span class="btn them" data-pt="them">Punt ${OPP} <kbd>E</kbd></span><span class="btn">↶ Ongedaan <kbd>Z</kbd></span></div>
     <div class="log" id="log">${S.log.slice().reverse().map(l=>`<div class="${l.r?'rally':''}"><span class="t">${l.t}</span>${l.txt}</div>`).join('')}</div>
@@ -130,8 +140,8 @@ async function wait(ms){let t=0;while(t<ms){if(abort)throw'abort';if(!paused){aw
 // ---------- tag-acties
 async function tag(team,act,zone,q,who){
   S.pending={team,act:null,zone:null};await click(`[data-team="${team}"]`);S.pending.team=team;$(`[data-team="${team}"]`).classList.add('on');updatePend();
-  await click(`[data-act="${act}"]`);S.pending.act=act;app.querySelectorAll('[data-act]').forEach(e=>e.classList.toggle('on',e.dataset.act===act));updatePend();
-  await click(`.cell[data-team="${team}"][data-z="${zone}"]`);S.pending.zone=zone;$(`.cell[data-team="${team}"][data-z="${zone}"]`).classList.add('sel');updatePend();
+  await click(`[data-act="${act}"]`);S.pending.act=act;S.pending.zone=act==='opslag'?1:null;scoutScreen();S.pending={team,act,zone:S.pending.zone};$(`[data-team="${team}"]`).classList.add('on');
+  if(act!=='opslag'){await click(`.mb[data-mz="${zone}"]`);S.pending.zone=zone;$(`.mb[data-mz="${zone}"]`).classList.add('on');updatePend()}else{await wait(400)}
   await click(`[data-q="${q}"]`);
   const pl=team==='us'?playerAt(zone):{nr:who||oppAt(zone)};
   if(team==='them'&&act==='opslag'&&who){const k=baseIndex(S.oppRot,Z2D[1]);const idx=[5,2,1,0,3,4].indexOf(k);if(S.opp[idx]==='?')S.opp[idx]=who}
@@ -168,15 +178,15 @@ async function ch1(){
 }
 async function ch2(){
   if(!S||S.log.length)reset();scoutScreen();
-  caption(2,'Elke tag is vier tikken: wie → actie → zone → kwaliteit. De speler vult de app zelf in, uit de rotatie.');await wait(1800);
+  caption(2,'Elke tag is drie of vier tikken, van boven naar beneden: wie → actie → speler op het veldje → kwaliteit. De namen op het veldje komen uit de rotatie.');await wait(1800);
   caption(2,'Gierle serveert. Bij hun opslag vraagt de app het rugnummer: #9. Na zes servers kent de app hun hele rotatie.');
   await tag('them','opslag',1,'+','9');
-  caption(2,'Receptie in zone 6. Daar hoort 8 Lotte te staan, maar zij staat achteraan — dus vult de app de libero in: 14 Hanne (L).');
+  caption(2,'Receptie: alleen de achterste zones lichten op. In zone 6 hoort 8 Lotte te staan, maar zij staat achteraan — dus toont de app de libero: 14 Hanne (L).');
   await tag('us','receptie',6,'+');
-  caption(2,'Aanval uit zone 4 door 1 Lien, kwaliteit # = punt. Daarna: Punt VNK.');
+  caption(2,'Aanval uit zone 4 door 1 Lien. De codes zijn de Data Volley-standaard; het woord eronder past zich aan de actie aan: # = kill. Daarna: Punt VNK.');
   await tag('us','aanval',4,'#');
   await point('us');
-  caption(2,'Side-out: VNK won op de opslag van Gierle en draait één positie door. Kijk naar het veld — iedereen schuift op, Fien serveert nu.');await wait(2400);
+  caption(2,'Side-out: VNK won op de opslag van Gierle en draait één positie door. Kijk naar het veld rechts — iedereen schuift op, Fien serveert nu. Bij opslag is de speler al ingevuld.');await wait(2400);
   // rally 2: we serve
   await tag('us','opslag',1,'!');
   caption(2,'Gierle ontvangt en valt aan. Wat je van hen tagt, kies je zelf; opslag, receptie en aanval volstaan voor een goed beeld.');

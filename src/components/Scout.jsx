@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { POS } from '../lib/volley.js'
-import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
+import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
 import { reportHtml } from './ScoutReport.js'
 import Modal from './Modal.jsx'
 
@@ -71,7 +71,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       if (e.key === ' ') { e.preventDefault(); vid?.paused ? vid?.play() : vid?.pause(); return }
       if (e.key === 'ArrowLeft') { if (vid) vid.currentTime -= 5; return } if (e.key === 'ArrowRight') { if (vid) vid.currentTime += 5; return }
       if (k === 'w') setPending(p => ({ ...p, team: 'us' })); else if (k === 't') setPending(p => ({ ...p, team: 'them' }))
-      else if (ACTIONS.some(a => a[1].toLowerCase() === k)) setPending(p => ({ ...p, act: ACTIONS.find(a => a[1].toLowerCase() === k)[0] }))
+      else if (ACTIONS.some(a => a[1].toLowerCase() === k)) { const act = ACTIONS.find(a => a[1].toLowerCase() === k)[0]; setPending(p => ({ ...p, act, zone: act === 'opslag' ? 1 : p.zone })) }
       else if ('123456'.includes(e.key) && e.key) setPending(p => ({ ...p, zone: +e.key }))
       else if (QUALITIES.some(q => q[0] === e.key)) tag(e.key)
       else if (k === 'q') point('us'); else if (k === 'e') point('them'); else if (k === 'z') undo(); else if (k === 'l') setPending(p => ({ ...p, lib: !p.lib }))
@@ -105,9 +105,14 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <div className="hint">1. Wie <kbd>W</kbd>/<kbd>T</kbd></div>
         <div className="row"><button className={pending.team === 'us' ? 'on' : ''} onClick={() => setPending(p => ({ ...p, team: 'us' }))}>{teamName}</button><button className={pending.team === 'them' ? 'on' : ''} onClick={() => setPending(p => ({ ...p, team: 'them' }))}>{match.opp}</button></div>
         <div className="hint">2. Actie</div>
-        <div className="row">{ACTIONS.filter(([a]) => !bench || ['opslag', 'receptie', 'aanval'].includes(a)).map(([a, k]) => <button key={a} className={pending.act === a ? 'on' : ''} onClick={() => setPending(p => ({ ...p, act: a }))}>{a} {!bench && <kbd>{k}</kbd>}</button>)}</div>
-        <div className="hint">3. Zone: tik op het veld (of <kbd>1</kbd>–<kbd>6</kbd>) · 4. Kwaliteit</div>
-        <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>) : QUALITIES.map(([q, t]) => <button key={q} title={t} onClick={() => tag(q)}>{q}</button>)}</div>
+        <div className="row">{ACTIONS.filter(([a]) => !bench || ['opslag', 'receptie', 'aanval'].includes(a)).map(([a, k]) => <button key={a} className={pending.act === a ? 'on' : ''} onClick={() => setPending(p => ({ ...p, act: a, zone: a === 'opslag' ? 1 : p.zone }))}>{a} {!bench && <kbd>{k}</kbd>}</button>)}</div>
+        <div className="hint">3. Speler / zone {pending.act === 'opslag' ? '(opslag is altijd zone 1)' : <>(of <kbd>1</kbd>–<kbd>6</kbd>)</>}</div>
+        <div className="minicourt">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const team = pending.team || 'us'; const pl = playerAt(team, z); const ok = !pending.act || !ZONES_FOR[pending.act] || ZONES_FOR[pending.act].includes(z)
+          return <button key={dd} disabled={!ok} className={(pending.zone === z ? 'on' : '') + (pl?.lib ? ' lib' : '')} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>z{z} · {p[0]}</small><b>{pl ? (pl.nr ? pl.nr + ' ' : '') + (pl.name || '') : '?'}</b></button> })}</div>
+        <div className="hint">4. Kwaliteit <button className="ghost qhelp" onClick={() => setModal('qhelp')}>?</button></div>
+        <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>)
+          : QUALITIES.map(([q, t]) => { const lbl = pending.act ? Q_LABELS[pending.act][q] : t; if (pending.act && lbl === null) return null
+            return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div>
         <div className="hint">Volgende tag: {pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}</div>
       </div>
       <div className="row"><button className="us" onClick={() => point('us')}>Punt {teamName} <kbd>Q</kbd></button><button className="them" onClick={() => point('them')}>Punt {match.opp} <kbd>E</kbd></button><button onClick={undo}>↶ Ongedaan <kbd>Z</kbd></button></div>
@@ -128,6 +133,12 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     {askTo && <Modal onClose={() => setAskTo(null)}><h2>Waar kwam de bal neer?</h2><p>Tik de zone bij {match.opp} (gezien vanaf hun kant), of sla over.</p>
       <div className="court"><div className="floor">{[[2, 3, 4], [1, 6, 5]].map((row, ri) => row.map(z => <div key={z} className="pos scell" style={{ order: ri * 3 }} onClick={() => setTo(z)}><small>zone</small><b>{z}</b></div>))}</div></div>
       <button className="ghost" onClick={() => setAskTo(null)}>Sla over</button></Modal>}
+    {modal === 'qhelp' && <Modal onClose={() => setModal(null)}><h2>Kwaliteitscodes</h2>
+      <p>Dit zijn de standaardcodes uit Data Volley, zodat je cijfers vergelijkbaar zijn met andere scoutingprogramma's. De betekenis verschilt licht per actie:</p>
+      <table className="stats"><thead><tr><th>Code</th>{ACTIONS.map(([a]) => <th key={a}>{a}</th>)}</tr></thead>
+        <tbody>{QUALITIES.map(([q]) => <tr key={q}><td><b>{q}</b></td>{ACTIONS.map(([a]) => <td key={a} style={{ textAlign: 'left' }}>{Q_LABELS[a][q] ?? '–'}</td>)}</tr>)}</tbody></table>
+      <p className="hint">Vuistregel receptie: kan de setter een snelle bal geven → #; alleen een hoge bal → +; moet de setter de bal redden → ! of −. Wees vooral consequent.</p>
+      <button className="ghost" onClick={() => setModal(null)}>Sluit</button></Modal>}
     {modal === 'stats' && <Modal onClose={() => setModal(null)}><h2>Statistieken</h2>
       <h3>Side-out per rotatie</h3><table className="stats"><thead><tr><th>Rot</th><th>Server</th><th>Ontv</th><th>SO</th><th>SO%</th><th>Serv</th><th>Break</th><th>Br%</th></tr></thead>
         <tbody>{rotationStats(match, scout, roster).map(r => <tr key={r.rot}><td>R{r.rot + 1}</td><td>{r.server}</td><td>{r.recv}</td><td>{r.so}</td><td>{r.soPct ?? ''}{r.soPct != null ? '%' : ''}</td><td>{r.serve}</td><td>{r.brk}</td><td>{r.brkPct ?? ''}{r.brkPct != null ? '%' : ''}</td></tr>)}</tbody></table>
