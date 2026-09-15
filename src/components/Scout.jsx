@@ -40,8 +40,9 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     const p = pending; if (!p.team || !p.act || !p.zone) { flash('Kies eerst ploeg, actie en zone'); return }
     if (p.team === 'them' && p.act === 'opslag') {
       const sv = scout.oppServers[set] || []
-      const known = sv.length >= 6 ? playerAt('them', 1)?.nr : ''
-      const nr = prompt(`Rugnummer van de server (${match.opp})`, known || ''); if (nr === null) return
+      const known = playerAt('them', 1)?.nr
+      if (known) { commit(q, { nr: known, name: '' }); return }
+      const nr = prompt(`Rugnummer van de server (${match.opp})`, ''); if (nr === null) return
       const nsv = sv.length < 6 && !sv.includes(nr) ? [...sv, nr] : sv
       setScout(s => ({ ...s, oppServers: { ...s.oppServers, [set]: nsv }, oppFirstRot: sv.length === 0 ? { ...s.oppFirstRot, [set]: d.rotThem } : s.oppFirstRot }))
       commit(q, { nr, name: '#' + nr }); return
@@ -71,6 +72,13 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     flash(`Punt ${team === 'us' ? teamName : match.opp}`)
   }
   function point(team) { pointAfter(team, d) }
+  function setOppLineup() {
+    const cur = [1, 2, 3, 4, 5, 6].map(z => oppPlayerAt(scout, set, d, z)?.nr || '')
+    const txt = prompt(`Rugnummers van ${match.opp} zoals ze NU staan, in de volgorde I II III IV V VI (zone 1 t/m 6), gescheiden door spaties:`, cur.join(' ').trim())
+    if (txt === null) return
+    const nrs = txt.trim().split(/\s+/).filter(Boolean); if (nrs.length !== 6) { flash('Geef precies zes nummers'); return }
+    setScout(s => ({ ...s, oppServers: { ...s.oppServers, [set]: nrs }, oppFirstRot: { ...s.oppFirstRot, [set]: d.rotThem } })); flash('Rotatie ' + match.opp + ' ingesteld')
+  }
   function blockBy(zone) {
     const t = askBlock.team; const pl = zone ? playerAt(t, zone) : null
     if (pl) push({ type: 'touch', team: t, act: 'blok', zone, q: '#', playerId: pl.id || '', playerNr: pl.nr || '', lib: false, rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them })
@@ -101,6 +109,20 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   })
 
+  const rally = (() => { const ev = scout.events.filter(e => e.set === set); let i = ev.length; while (i > 0 && ev[i - 1].type !== 'point') i--; return ev.slice(i).filter(e => e.type === 'touch') })()
+  const ABBR = { opslag: 'S', receptie: 'R', pas: 'P', aanval: 'A', blok: 'B', verdediging: 'V' }
+  const QCLS = q => q === '#' ? 'q-good' : (q === '=' || q === '/' || q === '-') ? 'q-bad' : 'q-mid'
+  const ballTeam = pending.team || (rally.length ? (rally[rally.length - 1].team) : d.serve)
+  const RallyStrip = () => <div className="rally">
+    <div className="lanes">
+      {['us', 'them'].map(t => <div key={t} className="lane"><span className="lbl">{t === 'us' ? teamName : match.opp}</span>
+        <div className="chips">{rally.map((e, i) => <button key={e.id} className={'chip ' + QCLS(e.q) + (e.team === t ? '' : ' ghostchip')} style={{ gridColumn: i + 1 }} title={e.team === t ? `${e.act} z${e.zone} ${e.q} · #${e.playerNr} — tik om te schrappen` : ''}
+          onClick={() => { if (e.team === t) setScout(s => ({ ...s, events: s.events.filter(x => x.id !== e.id) })) }}>{e.team === t ? <><b>{ABBR[e.act]}</b>{e.playerNr || '?'}<i>{e.q}</i></> : ''}</button>)}
+          {pending.act && <span className={'chip next' + (ballTeam === t ? '' : ' ghostchip')} style={{ gridColumn: rally.length + 1 }}>{ballTeam === t ? <><b>{ABBR[pending.act]}</b>…</> : ''}</span>}
+        </div></div>)}
+    </div>
+    <div className="hint">{rally.length ? `Rally: ${rally.length} acties · bal bij ${ballTeam === 'us' ? teamName : match.opp}` : `Nieuwe rally · opslag ${d.serve === 'us' ? teamName : match.opp}`}{rally.length ? ' · tik een blokje om het te schrappen' : ''}</div>
+  </div>
   const Court = ({ team }) => <div className="court"><div className="floor">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const pl = playerAt(team, z)
     return <div key={dd} className={'pos scell' + (pending.zone === z && pending.team === team ? ' sel' : '') + (pl?.lib ? ' lib' : '')} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>{p[0]} · z{z}</small><b>{pl ? (pl.nr || pl.name) : '?'}</b></div> })}</div></div>
   const ev = scout.events.filter(e => e.set === set).slice(-80).reverse()
@@ -124,18 +146,19 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <button onClick={() => v.current.currentTime += 1}>+1s</button><button onClick={() => v.current.currentTime += 5}>+5s</button>
         <select defaultValue="1" onChange={e => v.current.playbackRate = +e.target.value}><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.5">1.5×</option></select>
       </div>}
+      <RallyStrip />
       <div className="steps">
         <div className="hint">1. Wie <kbd>W</kbd>/<kbd>T</kbd></div>
         <div className="row"><button className={pending.team === 'us' ? 'on' : ''} onClick={() => setPending(p => ({ ...p, team: 'us' }))}>{teamName}</button><button className={pending.team === 'them' ? 'on' : ''} onClick={() => setPending(p => ({ ...p, team: 'them' }))}>{match.opp}</button></div>
-        <div className="hint">2. Actie</div>
+        <div className={'step' + (pending.team ? '' : ' inactive')}><div className="hint">2. Actie</div>
         <div className="row">{ACTIONS.filter(([a]) => !bench || ['opslag', 'receptie', 'aanval'].includes(a)).map(([a, k]) => <button key={a} className={pending.act === a ? 'on' : ''} onClick={() => setPending(p => ({ ...p, act: a, zone: a === 'opslag' ? 1 : p.zone }))}>{a} {!bench && <kbd>{k}</kbd>}</button>)}</div>
-        <div className="hint">3. Speler / zone {pending.act === 'opslag' ? '(opslag is altijd zone 1)' : <>(of <kbd>1</kbd>–<kbd>6</kbd>)</>}</div>
+        </div><div className={'step' + (pending.act ? '' : ' inactive')}><div className="hint">3. Speler / zone {pending.act === 'opslag' ? '(opslag is altijd zone 1)' : <>(of <kbd>1</kbd>–<kbd>6</kbd>)</>}</div>
         <div className="minicourt">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const team = pending.team || 'us'; const pl = playerAt(team, z); const ok = !pending.act || !ZONES_FOR[pending.act] || ZONES_FOR[pending.act].includes(z)
           return <button key={dd} className={(pending.zone === z ? 'on' : '') + (pl?.lib ? ' lib' : '') + (ok ? '' : ' dim')} title={ok ? '' : 'Ongebruikelijk voor deze actie, maar mogelijk'} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>z{z} · {p[0]}</small><b>{pl ? (pl.nr ? pl.nr + ' ' : '') + (pl.name || '') : '?'}</b></button> })}</div>
-        <div className="hint">4. Kwaliteit <button className="ghost qhelp" onClick={() => setModal('qhelp')}>?</button></div>
+        </div><div className={'step' + (pending.act && pending.zone ? '' : ' inactive')}><div className="hint">4. Kwaliteit <button className="ghost qhelp" onClick={() => setModal('qhelp')}>?</button></div>
         <div className="row q">{bench && SIMPLE_Q[pending.act] ? SIMPLE_Q[pending.act].map(([lbl, q]) => <button key={q} onClick={() => tag(q)}>{lbl}</button>)
           : QUALITIES.map(([q, t]) => { const lbl = pending.act ? Q_LABELS[pending.act][q] : t; if (pending.act && lbl === null) return null
-            return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div>
+            return <button key={q} title={t} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button> })}</div></div>
         <div className="hint">{smart && pending.act ? 'Klaargezet: ' : 'Volgende tag: '}{pending.team ? (pending.team === 'us' ? teamName : match.opp) : '…'} · {pending.act || '…'} · zone {pending.zone || '…'}{pending.lib ? ' · libero' : ''}{smart && pending.act === 'opslag' && pending.zone ? ' — tik alleen de kwaliteit' : ''}</div>
       </div>
       <div className="row"><button className="us" onClick={() => point('us')}>Punt {teamName} <kbd>Q</kbd></button><button className="them" onClick={() => point('them')}>Punt {match.opp} <kbd>E</kbd></button><button onClick={undo}>↶ Ongedaan <kbd>Z</kbd></button></div>
@@ -151,7 +174,8 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       <h2>{teamName} <span className="hint">rotatie {d.rotUs}</span></h2><Court team="us" />
       <label className="hint">Libero staat in voor <select value={libFor} onChange={e => setLibFor(e.target.value)}><option value="">niemand</option>{match.sets[set].pos.filter(Boolean).map(id => { const p = roster.find(x => x.id === id); return p && <option key={id} value={id}>{p.nr} {p.name}</option> })}</select></label>
       <h2>{match.opp} <span className="hint">{d.servers.length >= 6 ? 'rotatie bekend' : `${d.servers.length}/6 servers`}</span></h2><Court team="them" />
-      <div className="hint">Bij hun opslag vraagt de app het rugnummer van de server; na 6 servers is hun rotatie bekend. <kbd>L</kbd> = libero-markering voor de volgende tag.</div>
+      <div className="row"><button onClick={setOppLineup}>Rugnummers {match.opp}…</button></div>
+      <div className="hint">Vul hun zes nummers in zoals ze staan (I t/m VI), of laat de app ze leren: bij een onbekende server vraagt hij het nummer. <kbd>L</kbd> = libero-markering voor de volgende tag.</div>
     </section>
     {askBlock && <Modal onClose={() => blockBy(null)}><h2>Geblokt — door wie?</h2><p>Netspelers van {askBlock.team === 'us' ? teamName : match.opp}. Het punt gaat naar hen.</p>
       <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); return <button key={z} onClick={() => blockBy(z)}>z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>

@@ -174,5 +174,21 @@
   .scout .minicourt button:nth-child(-n+3){border-bottom:2px dashed #fff}
   .scout .q button{display:grid;gap:0;padding:6px 4px}.scout .q .sym{font-weight:700;font-size:18px}.scout .q small{font-size:10px;color:var(--mute);font-weight:400}
   .scout .q button.on small,.scout .q button:hover small{color:inherit}
-  .scout .qhelp{border:1px solid var(--line);border-radius:50%;width:22px;height:22px;padding:0;font-weight:700;margin-left:4px}
+  .scout .qhelp{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:50%;width:22px;height:22px;padding:0;font-weight:700;margin-left:4px;vertical-align:middle;line-height:1}
   .scout.bench .minicourt button{min-height:58px}.scout.bench .minicourt button b{font-size:19px}
+
+  .scout .step{transition:opacity .2s}.scout .step.inactive{opacity:.35;pointer-events:none}
+  .scout .rally{background:#FAFBFD;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0}
+  .scout .lanes{display:grid;gap:4px}
+  .scout .lane{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:6px;min-height:34px}
+  .scout .lane:first-child{border-bottom:2px solid var(--zone);padding-bottom:4px}
+  .scout .lane .lbl{font:600 12px Barlow;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .scout .chips{display:grid;grid-auto-flow:column;grid-auto-columns:46px;gap:4px;overflow-x:auto;padding:2px 0}
+  .scout .chip{height:30px;border-radius:6px;border:1px solid var(--line);background:var(--paper);font:600 12px Barlow;display:flex;align-items:center;justify-content:center;gap:2px;padding:0 4px;cursor:pointer;position:relative}
+  .scout .chip b{font:700 13px "Barlow Condensed"}.scout .chip i{font-style:normal;font-weight:700;margin-left:2px}
+  .scout .chip.q-good{background:#E3F4E9;border-color:#9ED2B2}.scout .chip.q-bad{background:#FBE7E5;border-color:#E9A9A4}.scout .chip.q-mid{background:#EEF1F5}
+  .scout .chip.ghostchip{visibility:hidden}
+  .scout .chip.next{background:var(--zone);color:#fff;border-color:var(--zone);visibility:visible;animation:pulse 1.2s infinite}
+  .scout .chip.next.ghostchip{visibility:hidden}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .scout .chip:hover:not(.next){border-color:var(--warn)}
