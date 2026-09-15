@@ -55,16 +55,18 @@ export function statsRows(scout, team, roster) {
   const by = {}
   scout.events.filter(e => e.type === 'touch' && e.team === team).forEach(e => {
     const key = e.playerNr || '?'
-    const r = by[key] || (by[key] = { nr: key, name: (roster.find(p => p.nr === key) || {}).name || '', rec: [], att: [], srv: [], blk: 0, dig: 0 })
+    const mk = k => by[k] || (by[k] = { nr: k, name: (roster.find(p => p.nr === k) || {}).name || '', rec: [], att: [], srv: [], blk: 0, ass: 0, dig: 0 })
+    const r = mk(key)
     if (e.act === 'receptie') r.rec.push(e.q); if (e.act === 'aanval') r.att.push(e.q); if (e.act === 'opslag') r.srv.push(e.q)
-    if (e.act === 'blok' && e.q === '#') r.blk++; if (e.act === 'verdediging') r.dig++
+    if (e.act === 'blok' && e.q === '#') { r.blk++; (e.assists || []).forEach(a => { mk(a.nr || '?').ass++ }) }
+    if (e.act === 'verdediging') r.dig++
   })
   const pct = (a, ok) => a.length ? Math.round(100 * a.filter(q => ok.includes(q)).length / a.length) + '%' : ''
   return Object.values(by).map(r => ({
     nr: r.nr, name: r.name, recN: r.rec.length, recPos: pct(r.rec, ['#', '+']), recErr: r.rec.filter(q => q === '=').length,
     attN: r.att.length, kills: r.att.filter(q => q === '#').length, attErr: r.att.filter(q => q === '=' || q === '/').length,
     eff: r.att.length ? Math.round(100 * (r.att.filter(q => q === '#').length - r.att.filter(q => q === '=' || q === '/').length) / r.att.length) + '%' : '',
-    srvN: r.srv.length, aces: r.srv.filter(q => q === '#').length, srvErr: r.srv.filter(q => q === '=').length, blk: r.blk, dig: r.dig,
+    srvN: r.srv.length, aces: r.srv.filter(q => q === '#').length, srvErr: r.srv.filter(q => q === '=').length, blk: r.blk, ass: r.ass, dig: r.dig,
   })).sort((a, b) => (+a.nr || 99) - (+b.nr || 99))
 }
 export function scoutCsv(scout, teamName, oppName) {
@@ -79,6 +81,7 @@ export function scoutCsv(scout, teamName, oppName) {
 export function rotationStats(match, scout, roster) {
   const rows = Array.from({ length: 6 }, (_, r) => ({ rot: r, recv: 0, so: 0, serve: 0, brk: 0 }))
   match.sets.forEach((st, setIdx) => {
+    if (!(st.locked || st.us !== '' || st.them !== '')) return
     let serve = scout.serveFirst[setIdx] || 'us', rotUs = 0, rotThem = 0
     scout.events.filter(e => e.set === setIdx).forEach(e => {
       if (e.type === 'adj') { if (e.what === 'serve') serve = serve === 'us' ? 'them' : 'us'; if (e.what === 'rotUs') rotUs = (rotUs + 1) % 6; if (e.what === 'rotThem') rotThem = (rotThem + 1) % 6; return }

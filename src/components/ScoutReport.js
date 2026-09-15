@@ -1,6 +1,6 @@
 // Rapport in Data Volley-stijl als afdrukbare HTML (PDF via de printdialoog van de browser).
 import { statsRows, rotationStats, attackDirections, distribution } from '../lib/scout.js'
-import { matchState, fmt } from '../lib/volley.js'
+import { matchState, fmt, playedSet } from '../lib/volley.js'
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 // zonecentra op een verticaal veld 120x200: bovenhelft tegenstander (gespiegeld), onderhelft wij
@@ -17,13 +17,13 @@ function courtSvg(dirs) {
     ${arrows}${dots}</svg>`
 }
 export function reportHtml(match, scout, roster, teamName) {
-  const sets = match.sets.filter(st => st.pos.some(Boolean) || st.us !== '' || st.them !== '')
+  const sets = match.sets.filter(playedSet)
   const { w, l } = matchState(match); const rot = rotationStats(match, scout, roster)
   const tbl = team => { const rows = statsRows(scout, team, roster); const tot = k => rows.reduce((a, r) => a + (r[k] || 0), 0)
-    return `<table><thead><tr><th>Speler</th><th colspan="3">Opslag</th><th colspan="3">Receptie</th><th colspan="4">Aanval</th><th>Blok</th><th>Verd</th></tr>
-      <tr><th></th><th>tot</th><th>ace</th><th>fout</th><th>tot</th><th>pos%</th><th>fout</th><th>tot</th><th>kill</th><th>fout</th><th>eff</th><th>pt</th><th>tot</th></tr></thead><tbody>
-      ${rows.map(r => `<tr><td>${esc(r.nr)} ${esc(r.name)}</td><td>${r.srvN || ''}</td><td>${r.aces || ''}</td><td>${r.srvErr || ''}</td><td>${r.recN || ''}</td><td>${r.recPos}</td><td>${r.recErr || ''}</td><td>${r.attN || ''}</td><td>${r.kills || ''}</td><td>${r.attErr || ''}</td><td>${r.eff}</td><td>${r.blk || ''}</td><td>${r.dig || ''}</td></tr>`).join('')}
-      <tr class="tot"><td>Totaal</td><td>${tot('srvN')}</td><td>${tot('aces')}</td><td>${tot('srvErr')}</td><td>${tot('recN')}</td><td></td><td>${tot('recErr')}</td><td>${tot('attN')}</td><td>${tot('kills')}</td><td>${tot('attErr')}</td><td></td><td>${tot('blk')}</td><td>${tot('dig')}</td></tr></tbody></table>` }
+    return `<table><thead><tr><th>Speler</th><th colspan="3">Opslag</th><th colspan="3">Receptie</th><th colspan="4">Aanval</th><th colspan="2">Blok</th><th>Verd</th></tr>
+      <tr><th></th><th>tot</th><th>ace</th><th>fout</th><th>tot</th><th>pos%</th><th>fout</th><th>tot</th><th>kill</th><th>fout</th><th>eff</th><th>pt</th><th>ass</th><th>tot</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td>${esc(r.nr)} ${esc(r.name)}</td><td>${r.srvN || ''}</td><td>${r.aces || ''}</td><td>${r.srvErr || ''}</td><td>${r.recN || ''}</td><td>${r.recPos}</td><td>${r.recErr || ''}</td><td>${r.attN || ''}</td><td>${r.kills || ''}</td><td>${r.attErr || ''}</td><td>${r.eff}</td><td>${r.blk || ''}</td><td>${r.ass || ''}</td><td>${r.dig || ''}</td></tr>`).join('')}
+      <tr class="tot"><td>Totaal</td><td>${tot('srvN')}</td><td>${tot('aces')}</td><td>${tot('srvErr')}</td><td>${tot('recN')}</td><td></td><td>${tot('recErr')}</td><td>${tot('attN')}</td><td>${tot('kills')}</td><td>${tot('attErr')}</td><td></td><td>${tot('blk')}</td><td>${tot('ass')}</td><td>${tot('dig')}</td></tr></tbody></table>` }
   const dirs = attackDirections(scout, 'us')
   const dirBlocks = Object.entries(dirs).map(([nr, ds]) => { const p = roster.find(x => x.nr === nr); const k = ds.filter(d => d.q === '#').length, e = ds.filter(d => d.q === '=' || d.q === '/').length
     return `<div class="pl"><div class="nm">${esc(nr)} ${esc(p?.name || '')}</div>${courtSvg(ds)}<div class="sm">${ds.length} aanv · ${k} kill · ${e} fout · eff ${ds.length ? Math.round(100 * (k - e) / ds.length) : 0}%</div></div>` }).join('')

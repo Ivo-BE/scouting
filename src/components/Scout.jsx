@@ -18,7 +18,8 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const [videoName, setVideoName] = useState('')
   const [bench, setBench] = useState(false)          // bankmodus: live, grote knoppen, 3-traps kwaliteit
   const [askTo, setAskTo] = useState(null)            // na een aanval: waar kwam de bal neer? {eventId}
-  const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team: blokkende ploeg}
+  const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team, sel:[zones]}
+  const [askCo, setAskCo] = useState(null)            // medeblokkers na een eigen blok-tag: {eventId, team, zone, sel:[zones]}
   const [oppForm, setOppForm] = useState(null)        // formulier rugnummers tegenstander: {1:'9',2:'4',...}
   const [smart, setSmart] = useState(true)            // slim taggen: volgende stap klaarzetten, punten automatisch
   const [tagPas, setTagPas] = useState(() => localStorage.getItem('scout:tagPas') === '1')
@@ -78,6 +79,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       else setPending({ team: p.team, act: null, zone: null, lib: false })
     } else setPending({ team: p.team, act: null, zone: null, lib: false })
     if (p.act === 'aanval' && p.team === 'us' && !bench && q !== '=' && q !== '/') setAskTo(id)
+    if (p.act === 'blok' && (q === '#' || q === '+') && p.zone) setAskCo({ eventId: id, team: p.team, zone: p.zone, sel: [] })
   }
   function setTo(zone) { setScout(s => ({ ...s, events: s.events.map(e => e.id === askTo ? { ...e, to: zone } : e) })); setAskTo(null) }
   function openReport() { const win = window.open('', '_blank'); if (!win) { flash('Sta pop-ups toe voor het rapport'); return } win.document.write(reportHtml(match, scout, roster, teamName)); win.document.close() }
@@ -106,10 +108,16 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     setScout(s => ({ ...s, oppServers: { ...s.oppServers, [set]: nrs }, oppFirstRot: { ...s.oppFirstRot, [set]: d.rotThem } }))
     setOppForm(null); flash(`${nrs.filter(Boolean).length}/6 rugnummers ${match.opp} bewaard`)
   }
-  function blockBy(zone) {
-    const t = askBlock.team; const pl = zone ? playerAt(t, zone) : null
-    if (pl) push({ type: 'touch', team: t, act: 'blok', zone, q: '#', playerId: pl.id || '', playerNr: pl.nr || '', lib: false, rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them })
+  function blockDone(sel) {
+    const t = askBlock.team
+    if (sel.length) { const [z, ...rest] = sel; const pl = playerAt(t, z); const co = rest.map(zz => playerAt(t, zz)).filter(Boolean)
+      push({ type: 'touch', team: t, act: 'blok', zone: z, q: '#', playerId: pl?.id || '', playerNr: pl?.nr || '', lib: false, blockers: sel.length, assists: co.map(c => ({ id: c.id || '', nr: c.nr || '' })), rotUs: d.rotUs, rotThem: d.rotThem, us: d.us, them: d.them }) }
     setAskBlock(null); pointAfter(t, d)
+  }
+  function coDone(sel) {
+    const co = sel.map(z => playerAt(askCo.team, z)).filter(Boolean)
+    setScout(s => ({ ...s, events: s.events.map(e => e.id === askCo.eventId ? { ...e, blockers: 1 + co.length, assists: co.map(c => ({ id: c.id || '', nr: c.nr || '' })) } : e) }))
+    setAskCo(null)
   }
   function undo() { const ev = scout.events.filter(e => e.set === set); const last = ev[ev.length - 1]; if (last) setScout(s => ({ ...s, events: s.events.filter(e => e.id !== last.id) })) }
   function sub() {
@@ -124,7 +132,8 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) || modal) return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return }
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (askBlock) { if ('234'.includes(e.key) && e.key) blockBy(+e.key); else blockBy(null); return }
+      if (askBlock) { if ('234'.includes(e.key) && e.key) { const z = +e.key; setAskBlock(a => { const sel = a.sel || []; return { ...a, sel: sel.includes(z) ? sel.filter(x => x !== z) : [...sel, z] } }) } else if (e.key === 'Enter') blockDone(askBlock.sel || []); else if (e.key === 'Escape') blockDone([]); return }
+      if (askCo) { if ('234'.includes(e.key) && e.key && +e.key !== askCo.zone) { const z = +e.key; setAskCo(a => ({ ...a, sel: a.sel.includes(z) ? a.sel.filter(x => x !== z) : [...a.sel, z] })) } else coDone(askCo.sel); return }
       if (askTo) { if ('123456'.includes(e.key) && e.key) { setTo(+e.key); return } setAskTo(null); if (e.key === 'Escape') return }
       const k = e.key.toLowerCase(); const vid = v.current
       if (e.key === ' ') { e.preventDefault(); vid?.paused ? vid?.play() : vid?.pause(); return }
@@ -182,7 +191,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const Court = ({ team }) => <div className="court"><div className="floor">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const pl = playerAt(team, z)
     return <div key={dd} className={'pos scell' + (pending.zone === z && pending.team === team ? ' sel' : '') + (pl?.lib ? ' lib' : '')} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>{p[0]} · z{z}</small><b>{pl ? (pl.nr || pl.name) : '?'}</b></div> })}</div></div>
   const ev = scout.events.filter(e => e.set === set).slice(-80).reverse()
-  const log = e => e.type === 'point' ? `Punt ${e.team === 'us' ? teamName : match.opp} → ${e.us}-${e.them}` : e.type === 'adj' ? `Aanpassing: ${e.what}` : `${e.team === 'us' ? teamName : match.opp} · ${e.act} z${e.zone} ${e.q} · #${e.playerNr || '?'}${e.lib ? ' (L)' : ''}`
+  const log = e => e.type === 'point' ? `Punt ${e.team === 'us' ? teamName : match.opp} → ${e.us}-${e.them}` : e.type === 'adj' ? `Aanpassing: ${e.what}` : `${e.team === 'us' ? teamName : match.opp} · ${e.act} z${e.zone} ${e.q} · #${e.playerNr || '?'}${e.lib ? ' (L)' : ''}${e.act === 'blok' && e.blockers > 1 ? ` (${e.blockers}-blok met #${(e.assists || []).map(a => a.nr).join(', #')})` : ''}`
 
   return <div className={'scout' + (bench ? ' bench' : '')}>
     <section className="panel scout-left">
@@ -194,7 +203,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
         <button className={bench ? 'on' : ''} onClick={() => setBench(b => !b)} title="Live op de bank: geen video, grote knoppen, 3 niveaus">Bankmodus</button>
         <button className={smart ? 'on' : ''} onClick={() => setSmart(v => !v)} title="Zet na elke tag de logische volgende stap klaar en kent punten automatisch toe">Slim</button>
         <button className={tagPas ? 'on' : ''} onClick={() => setTagPas(v => { localStorage.setItem('scout:tagPas', v ? '' : '1'); return !v })} title="Na elke receptie/verdediging de pas klaarzetten, met de setter al ingevuld">Pas taggen</button>
-        <button className={ownOnly ? 'on' : ''} onClick={() => setOwnOnly(v => { const nv = !v; localStorage.setItem('scout:ownOnly', nv ? '1' : '0'); flash(nv ? 'Eigen ploeg: alleen jouw acties worden voorgesteld; bij hun opslag begin je bij je receptie' : 'Beide ploegen: hun opslag, receptie en verdediging worden ook klaargezet'); return nv })} title="Aan: de app stelt nooit een actie van de tegenstander voor; de bal bij hen is een grijs puntje. Uit: hun opslag (met rugnummer), receptie en verdediging worden klaargezet">Eigen ploeg: {ownOnly ? 'aan' : 'uit'}</button>
+        <button className={ownOnly ? 'on' : ''} onClick={() => setOwnOnly(v => { const nv = !v; localStorage.setItem('scout:ownOnly', nv ? '1' : '0'); flash(nv ? 'Eigen ploeg: alleen jouw acties worden voorgesteld; bij hun opslag begin je bij je receptie' : 'Beide ploegen: hun opslag, receptie en verdediging worden ook klaargezet'); return nv })} title="Aan: de app stelt nooit een actie van de tegenstander voor; de bal bij hen is een grijs puntje. Uit: hun opslag (met rugnummer), receptie en verdediging worden klaargezet">Alleen eigen ploeg volgen: {ownOnly ? 'aan' : 'uit'}</button>
         <button onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([scoutCsv(scout, teamName, match.opp)], { type: 'text/csv;charset=utf-8' })); a.download = `scout-${match.opp}.csv`; a.click() }}>CSV</button>
       </div>
       <video ref={v} controls playsInline style={{ display: bench ? 'none' : '' }} />
@@ -246,9 +255,14 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       <div className="court"><div className="floor">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]
         return <div key={dd} className="pos scell oppin"><small>{p[0]} · z{z}</small><input inputMode="numeric" value={oppForm[z]} placeholder="nr" onChange={e => setOppForm(f => ({ ...f, [z]: e.target.value.replace(/\D/g, '') }))} /></div> })}</div></div>
       <div className="row"><button className="primary" onClick={saveOppLineup}>Bewaar</button><button className="ghost" onClick={() => setOppForm(null)}>Annuleer</button></div></Modal>}
-    {askBlock && <Modal onClose={() => blockBy(null)}><h2>Geblokt — door wie?</h2><p>Netspelers van {askBlock.team === 'us' ? teamName : match.opp}. Het punt gaat naar hen.</p>
-      <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); return <button key={z} onClick={() => blockBy(z)}>z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
-      <button className="ghost" onClick={() => blockBy(null)}>Weet ik niet — alleen het punt</button></Modal>}
+    {askBlock && <Modal onClose={() => blockDone(askBlock.sel || [])}><h2>Geblokt — door wie?</h2><p>Tik één, twee of drie netspelers van {askBlock.team === 'us' ? teamName : match.opp}. De eerste is de hoofdblokker (blokpunt), de anderen krijgen een assist.</p>
+      <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); const sel = askBlock.sel || []; const i = sel.indexOf(z)
+        return <button key={z} className={i >= 0 ? 'on' : ''} onClick={() => setAskBlock(a => ({ ...a, sel: i >= 0 ? sel.filter(x => x !== z) : [...sel, z] }))}>{i >= 0 ? (i === 0 ? '① ' : i === 1 ? '② ' : '③ ') : ''}z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
+      <div className="row"><button className="primary" onClick={() => blockDone(askBlock.sel || [])}>Klaar{(askBlock.sel || []).length > 1 ? ` (${askBlock.sel.length}-blok)` : ''}</button><button className="ghost" onClick={() => blockDone([])}>Weet ik niet — alleen het punt</button></div></Modal>}
+    {askCo && <Modal onClose={() => coDone(askCo.sel)}><h2>Medeblokkers?</h2><p>Wie stond mee in het blok naast z{askCo.zone}? Zij krijgen een assist.</p>
+      <div className="choices">{[4, 3, 2].filter(z => z !== askCo.zone).map(z => { const pl = playerAt(askCo.team, z); const on = askCo.sel.includes(z)
+        return <button key={z} className={on ? 'on' : ''} onClick={() => setAskCo(a => ({ ...a, sel: on ? a.sel.filter(x => x !== z) : [...a.sel, z] }))}>z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
+      <div className="row"><button className="primary" onClick={() => coDone(askCo.sel)}>{askCo.sel.length ? `Klaar (${askCo.sel.length + 1}-blok)` : 'Geen — solo blok'}</button></div></Modal>}
     {askTo && <Modal onClose={() => setAskTo(null)}><h2>Waar kwam de bal neer?</h2><p>Tik de zone bij {match.opp} (gezien vanaf hun kant), of sla over.</p>
       <div className="court"><div className="floor">{[[2, 3, 4], [1, 6, 5]].map((row, ri) => row.map(z => <div key={z} className="pos scell" style={{ order: ri * 3 }} onClick={() => setTo(z)}><small>zone</small><b>{z}</b></div>))}</div></div>
       <button className="ghost" onClick={() => setAskTo(null)}>Sla over</button></Modal>}
@@ -267,8 +281,8 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
             <td>{r.goodN ? `${pc(r.good[4], r.goodN)} / ${pc(r.good[3], r.goodN)} / ${pc(r.good[2], r.goodN)}` : '–'}</td><td>{r.badN ? `${pc(r.bad[4], r.badN)} / ${pc(r.bad[3], r.badN)} / ${pc(r.bad[2], r.badN)}` : '–'}</td>
             <td>{r.pas.length ? `${r.pas.length} · ${Math.round(100 * r.pas.filter(q => q === '#' || q === '+').length / r.pas.length)}% goed` : ''}</td></tr> })}</tbody></table>
       {['us', 'them'].map(team => <div key={team}><h3>{team === 'us' ? teamName : match.opp}</h3>
-        <table className="stats"><thead><tr><th>Speler</th><th>Rec</th><th>Rec+</th><th>RecF</th><th>Aanv</th><th>Kills</th><th>AanvF</th><th>Eff</th><th>Opsl</th><th>Aces</th><th>OpslF</th><th>Blok</th><th>Verd</th></tr></thead>
-          <tbody>{statsRows(scout, team, roster).map(r => <tr key={r.nr}><td>{r.nr} {r.name}</td><td>{r.recN || ''}</td><td>{r.recPos}</td><td>{r.recErr || ''}</td><td>{r.attN || ''}</td><td>{r.kills || ''}</td><td>{r.attErr || ''}</td><td>{r.eff}</td><td>{r.srvN || ''}</td><td>{r.aces || ''}</td><td>{r.srvErr || ''}</td><td>{r.blk || ''}</td><td>{r.dig || ''}</td></tr>)}</tbody></table></div>)}
+        <table className="stats"><thead><tr><th>Speler</th><th>Rec</th><th>Rec+</th><th>RecF</th><th>Aanv</th><th>Kills</th><th>AanvF</th><th>Eff</th><th>Opsl</th><th>Aces</th><th>OpslF</th><th>Blok</th><th>Ass</th><th>Verd</th></tr></thead>
+          <tbody>{statsRows(scout, team, roster).map(r => <tr key={r.nr}><td>{r.nr} {r.name}</td><td>{r.recN || ''}</td><td>{r.recPos}</td><td>{r.recErr || ''}</td><td>{r.attN || ''}</td><td>{r.kills || ''}</td><td>{r.attErr || ''}</td><td>{r.eff}</td><td>{r.srvN || ''}</td><td>{r.aces || ''}</td><td>{r.srvErr || ''}</td><td>{r.blk || ''}</td><td>{r.ass || ''}</td><td>{r.dig || ''}</td></tr>)}</tbody></table></div>)}
       <p className="hint">Rec+ = % receptie # of +. Eff = (kills − fouten) / aanvallen.</p><button className="ghost" onClick={() => setModal(null)}>Sluit</button></Modal>}
   </div>
 }

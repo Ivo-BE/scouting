@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart, statsRows } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -75,4 +75,10 @@ test('blok: vertraagd -> eigen verdediging, touch out -> punt tegen', () => {
   assert.deepEqual(nextStep({ team: 'us', act: 'blok', q: '+' }), { pending: { team: 'us', act: 'verdediging', zone: null } })
   assert.deepEqual(nextStep({ team: 'us', act: 'blok', q: '-' }), { point: 'them' })
   assert.deepEqual(benchNext({ act: 'blok', q: '+' }), { pending: { team: 'us', act: 'verdediging', zone: null } })
+})
+
+test('blok: hoofdblokker krijgt het punt, medeblokkers een assist', () => {
+  const sc = { ...emptyScout(), events: [{ type: 'touch', team: 'us', act: 'blok', zone: 3, q: '#', playerNr: '3', blockers: 2, assists: [{ nr: '5' }] }] }
+  const rows = statsRows(sc, 'us', roster)
+  assert.equal(rows.find(r => r.nr === '3').blk, 1); assert.equal(rows.find(r => r.nr === '5').ass, 1)
 })
