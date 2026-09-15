@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { POS } from '../lib/volley.js'
 import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, benchNext, benchStart, setterZone, distribution, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
 import { reportHtml } from './ScoutReport.js'
@@ -127,16 +127,43 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const rally = (() => { const ev = scout.events.filter(e => e.set === set); let i = ev.length; while (i > 0 && ev[i - 1].type !== 'point') i--; return ev.slice(i).filter(e => e.type === 'touch') })()
   const ABBR = { opslag: 'S', receptie: 'R', pas: 'P', aanval: 'A', blok: 'B', verdediging: 'V' }
   const QCLS = q => q === '#' ? 'q-good' : (q === '=' || q === '/' || q === '-') ? 'q-bad' : 'q-mid'
-  const ballTeam = pending.team || (rally.length ? (rally[rally.length - 1].team) : d.serve)
+  const crosses = e => e.act === 'opslag' || (e.act === 'aanval' && e.q !== '=' && e.q !== '/') || (e.act === 'blok' && e.q !== '#' && e.q !== '=')   // na deze actie is de bal aan de overkant
+  // keten van blokjes; in bankmodus een grijs blokje voor de tegenstander op de momenten dat de bal bij hen was
+  const chain = (() => {
+    const out = []
+    rally.forEach((e, i) => {
+      const prev = out[out.length - 1]
+      if (prev && prev.team === e.team && prev.real && crosses(prev.e)) out.push({ team: e.team === 'us' ? 'them' : 'us', real: false })
+      out.push({ team: e.team, real: true, e })
+    })
+    if (pending.act && pending.team) { const prev = out[out.length - 1]; if (prev && prev.team === pending.team && prev.real && crosses(prev.e)) out.push({ team: pending.team === 'us' ? 'them' : 'us', real: false }); out.push({ team: pending.team, real: true, next: true }) }
+    else if (pending.team === 'us' && !pending.act && rally.length) { const prev = out[out.length - 1]; if (prev.real && crosses(prev.e) && prev.team === 'us') out.push({ team: 'them', real: false }) }
+    return out
+  })()
+  const [usTop, setUsTop] = useState(() => localStorage.getItem('scout:usTop') === '1')
+  const lanes = usTop ? ['us', 'them'] : ['them', 'us']
+  const stripRef = useRef(); const [path, setPath] = useState('')
+  useLayoutEffect(() => {
+    const el = stripRef.current; if (!el) return
+    const chips = [...el.querySelectorAll('.chip[data-i]')].sort((a, b) => +a.dataset.i - +b.dataset.i)
+    const box = el.getBoundingClientRect()
+    const pts = chips.map(c => { const r = c.getBoundingClientRect(); return [r.left - box.left + r.width / 2, r.top - box.top + r.height / 2] })
+    setPath(pts.length > 1 ? pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') : '')
+  })
   const RallyStrip = () => <div className="rally">
-    <div className="lanes">
-      {['us', 'them'].map(t => <div key={t} className="lane"><span className="lbl">{t === 'us' ? teamName : match.opp}</span>
-        <div className="chips">{rally.map((e, i) => <button key={e.id} className={'chip ' + QCLS(e.q) + (e.team === t ? '' : ' ghostchip')} style={{ gridColumn: i + 1 }} title={e.team === t ? `${e.act} z${e.zone} ${e.q} · #${e.playerNr} — tik om te schrappen` : ''}
-          onClick={() => { if (e.team === t) setScout(s => ({ ...s, events: s.events.filter(x => x.id !== e.id) })) }}>{e.team === t ? <><b>{ABBR[e.act]}</b>{e.playerNr || '?'}<i>{e.q}</i></> : ''}</button>)}
-          {pending.act && <span className={'chip next' + (ballTeam === t ? '' : ' ghostchip')} style={{ gridColumn: rally.length + 1 }}>{ballTeam === t ? <><b>{ABBR[pending.act]}</b>…</> : ''}</span>}
+    <div className="rhead"><span className="hint">{rally.length ? `Rally: ${rally.length} acties` : `Nieuwe rally · opslag ${d.serve === 'us' ? teamName : match.opp}`}{rally.length ? ' · tik een blokje om het te schrappen' : ''}</span>
+      <button className="ghost" onClick={() => setUsTop(v => { localStorage.setItem('scout:usTop', v ? '' : '1'); return !v })} title="Welke ploeg staat boven het net?">⇅ kant</button></div>
+    <div className="lanes" ref={stripRef}>
+      <svg className="rline"><path d={path} /></svg>
+      {lanes.map(t => <div key={t} className={'lane ' + t}><span className="lbl">{t === 'us' ? teamName : match.opp}</span>
+        <div className="chips">{chain.map((c, i) => c.team !== t ? <span key={i} className="chip ghostchip" style={{ gridColumn: i + 1 }} /> :
+          c.next ? <span key={i} data-i={i} className="chip next" style={{ gridColumn: i + 1 }}><b>{ABBR[pending.act]}</b>…</span> :
+          !c.real ? <span key={i} data-i={i} className="chip virt" style={{ gridColumn: i + 1 }} title="Bal bij de tegenstander (niet getagd)">·</span> :
+          <button key={i} data-i={i} className={'chip ' + QCLS(c.e.q)} style={{ gridColumn: i + 1 }} title={`${c.e.act} z${c.e.zone} ${c.e.q} · #${c.e.playerNr} — tik om te schrappen`}
+            onClick={() => setScout(s => ({ ...s, events: s.events.filter(x => x.id !== c.e.id) }))}><b>{ABBR[c.e.act]}</b>{c.e.playerNr || '?'}<i>{c.e.q}</i></button>)}
         </div></div>)}
+      <div className="rnet" />
     </div>
-    <div className="hint">{rally.length ? `Rally: ${rally.length} acties · bal bij ${ballTeam === 'us' ? teamName : match.opp}` : `Nieuwe rally · opslag ${d.serve === 'us' ? teamName : match.opp}`}{rally.length ? ' · tik een blokje om het te schrappen' : ''}</div>
   </div>
   const Court = ({ team }) => <div className="court"><div className="floor">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const pl = playerAt(team, z)
     return <div key={dd} className={'pos scell' + (pending.zone === z && pending.team === team ? ' sel' : '') + (pl?.lib ? ' lib' : '')} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>{p[0]} · z{z}</small><b>{pl ? (pl.nr || pl.name) : '?'}</b></div> })}</div></div>
