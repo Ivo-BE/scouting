@@ -19,6 +19,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
   const [bench, setBench] = useState(false)          // bankmodus: live, grote knoppen, 3-traps kwaliteit
   const [askTo, setAskTo] = useState(null)            // na een aanval: waar kwam de bal neer? {eventId}
   const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team: blokkende ploeg}
+  const [oppForm, setOppForm] = useState(null)        // formulier rugnummers tegenstander: {1:'9',2:'4',...}
   const [smart, setSmart] = useState(true)            // slim taggen: volgende stap klaarzetten, punten automatisch
   const [tagPas, setTagPas] = useState(() => localStorage.getItem('scout:tagPas') === '1')
   const v = useRef(); const saveT = useRef()
@@ -87,12 +88,11 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
     setScout(s => ({ ...s, events: [...s.events, ...add.map(team => { if (team === 'us') us++; else them++; return { id: uid(), set, t: now(), type: 'point', team, us, them, gemist: true } })] }))
     setPending({ ...startStep(add.length ? add[add.length - 1] : d.serve), lib: false }); flash(`${add.length} gemiste punt${add.length === 1 ? '' : 'en'} toegevoegd — controleer wie serveert`)
   }
-  function setOppLineup() {
-    const cur = [1, 2, 3, 4, 5, 6].map(z => oppPlayerAt(scout, set, d, z)?.nr || '')
-    const txt = prompt(`Rugnummers van ${match.opp} zoals ze NU staan, in de volgorde I II III IV V VI (zone 1 t/m 6), gescheiden door spaties:`, cur.join(' ').trim())
-    if (txt === null) return
-    const nrs = txt.trim().split(/\s+/).filter(Boolean); if (nrs.length !== 6) { flash('Geef precies zes nummers'); return }
-    setScout(s => ({ ...s, oppServers: { ...s.oppServers, [set]: nrs }, oppFirstRot: { ...s.oppFirstRot, [set]: d.rotThem } })); flash('Rotatie ' + match.opp + ' ingesteld')
+  function setOppLineup() { const f = {}; [1, 2, 3, 4, 5, 6].forEach(z => { f[z] = oppPlayerAt(scout, set, d, z)?.nr || '' }); setOppForm(f) }
+  function saveOppLineup() {
+    const nrs = [1, 2, 3, 4, 5, 6].map(z => (oppForm[z] || '').trim())
+    setScout(s => ({ ...s, oppServers: { ...s.oppServers, [set]: nrs }, oppFirstRot: { ...s.oppFirstRot, [set]: d.rotThem } }))
+    setOppForm(null); flash(`${nrs.filter(Boolean).length}/6 rugnummers ${match.opp} bewaard`)
   }
   function blockBy(zone) {
     const t = askBlock.team; const pl = zone ? playerAt(t, zone) : null
@@ -199,6 +199,11 @@ export default function Scout({ matches, roster, teamName, onSaveScout, flash })
       <div className="row"><button onClick={setOppLineup}>Rugnummers {match.opp}…</button></div>
       <div className="hint">Vul hun zes nummers in zoals ze staan (I t/m VI), of laat de app ze leren: bij een onbekende server vraagt hij het nummer. <kbd>L</kbd> = libero-markering voor de volgende tag.</div>
     </section>
+    {oppForm && <Modal onClose={() => setOppForm(null)}><h2>Rugnummers {match.opp}</h2>
+      <p>Zoals ze <b>nu</b> op het veld staan. Vul in wat je weet; lege vakken leert de app later bij hun opslag.</p>
+      <div className="court"><div className="floor">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]
+        return <div key={dd} className="pos scell oppin"><small>{p[0]} · z{z}</small><input inputMode="numeric" value={oppForm[z]} placeholder="nr" onChange={e => setOppForm(f => ({ ...f, [z]: e.target.value.replace(/\D/g, '') }))} /></div> })}</div></div>
+      <div className="row"><button className="primary" onClick={saveOppLineup}>Bewaar</button><button className="ghost" onClick={() => setOppForm(null)}>Annuleer</button></div></Modal>}
     {askBlock && <Modal onClose={() => blockBy(null)}><h2>Geblokt — door wie?</h2><p>Netspelers van {askBlock.team === 'us' ? teamName : match.opp}. Het punt gaat naar hen.</p>
       <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); return <button key={z} onClick={() => blockBy(z)}>z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
       <button className="ghost" onClick={() => blockBy(null)}>Weet ik niet — alleen het punt</button></Modal>}

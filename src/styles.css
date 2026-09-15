@@ -202,3 +202,5 @@
   .scout.bench .scout-right{display:none}
   .scout.bench{grid-template-columns:1fr}
   .scout.bench .rally .lane:last-child{display:none}
+
+  .scout .pos.oppin input{width:56px;text-align:center;font:700 18px "Barlow Condensed";padding:4px;border-radius:6px;border:2px solid #fff;background:rgba(255,255,255,.9);color:var(--ink)}
