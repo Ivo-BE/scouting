@@ -338,3 +338,5 @@
   .bfield .cell.dim{opacity:.4}.bfield .cell.on{outline:4px solid #fff;outline-offset:-4px;background:#F5A25E}.bfield .cell.lib{background:#5E8CD6}
   @media(max-width:900px),(orientation:portrait){.bfield .cell{min-height:64px}.bfield .cell b{font-size:28px}}
   @media(max-width:600px){.bfield .cell{min-height:56px;padding:4px}.bfield .cell b{font-size:24px}.bfield .cell i{display:none}}
+
+  .btop .bset{font:600 14px Barlow;padding:5px 8px}

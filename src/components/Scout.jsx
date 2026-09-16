@@ -108,11 +108,13 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   function point(team) { pointAfter(team, d) }
   const setDone = setWinner({ us: String(d.us), them: String(d.them) }, set)
   const setsWon = match.sets.reduce((a, st, i) => { if (i === set) return a; const r = setWinner(st, i); return r === 'us' ? [a[0] + 1, a[1]] : r === 'them' ? [a[0], a[1] + 1] : a }, [0, 0])
+  const matchOver = matchState(match).over
+  const nextSetIdx = (() => { if (set >= 4) return null; if (matchOver) { return match.sets.findIndex((st, i) => i > set && playedSet(st)) >= 0 ? match.sets.findIndex((st, i) => i > set && playedSet(st)) : null } return set + 1 })()
   function closeSet() {
     if (target && (d.us !== target.us || d.them !== target.them)) {
       if (!confirm(`De wedstrijd staat op ${target.us}-${target.them}, je scouting op ${d.us}-${d.them}. De setstand blijft ${target.us}-${target.them}. Toch naar set ${set + 2}?`)) return
       const nextServe = (scout.serveFirst[set] || 'us') === 'us' ? 'them' : 'us'
-      setScout(s => ({ ...s, serveFirst: { ...s.serveFirst, [set + 1]: nextServe } })); if (set < 4) setSet(set + 1); return
+      setScout(s => ({ ...s, serveFirst: { ...s.serveFirst, [set + 1]: nextServe } })); if (nextSetIdx != null) setSet(nextSetIdx); else flash('Wedstrijd volledig gescout'); return
     }
     if (!target && !setDone && !confirm(`Stand ${d.us}-${d.them} is geen setwinst. Set ${set + 1} toch afsluiten met deze stand?`)) return
     if (match.locked && !target) { flash('Wedstrijd is vergrendeld; ontgrendel eerst in het tabblad Wedstrijd'); return }
@@ -120,7 +122,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
     const nextServe = (scout.serveFirst[set] || 'us') === 'us' ? 'them' : 'us'
     const sc = { ...scoutRaw, serveFirst: { ...scoutRaw.serveFirst, [set + 1]: nextServe } }
     setScout(sc); if (target) { /* stand stond al vast */ } else onUpdateMatch({ ...match, sets, scout: sc })
-    if (set < 4) { const nxt = match.sets[set + 1]; setSet(set + 1); if (!nxt.locked) flash(`Set ${set + 2}: startopstelling nog bevestigen in het tabblad Wedstrijd`) }
+    if (nextSetIdx != null) { const nxt = match.sets[nextSetIdx]; setSet(nextSetIdx); if (!nxt.locked) flash(`Set ${nextSetIdx + 1}: startopstelling nog bevestigen in het tabblad Wedstrijd`) } else flash('Wedstrijd volledig gescout')
   }
   function fixScore() {
     const txt = prompt(`Juiste stand (wij-zij), nu ${d.us}-${d.them}:`, `${d.us}-${d.them}`); if (!txt) return
@@ -249,10 +251,11 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
     </>
     return <div className="bench2">
       <div className="btop">
-        <div className="bl"><span className="bmeta">Set {set + 1} · rotatie {d.rotUs} · <b>{setsWon[0]}–{setsWon[1]}</b> in sets{target ? ` · vastgelegd ${target.us}-${target.them}` : ''}</span>
+        <div className="bl"><select className="bset" value={set} onChange={e => setSet(+e.target.value)} title="Naar een andere set">{match.sets.map((st, i) => { const over = matchState(match).over; const lastPlayed = match.sets.reduce((a, x, j) => playedSet(x) ? j : a, -1); const show = over ? playedSet(st) : i <= lastPlayed + 1; return show ? <option key={i} value={i}>Set {i + 1}{playedSet(st) ? ` · ${st.us || 0}-${st.them || 0}` : ''}</option> : null })}</select>
+          <span className="bmeta">rotatie {d.rotUs} · <b>{setsWon[0]}–{setsWon[1]}</b> in sets{target ? ` · vastgelegd ${target.us}-${target.them}` : ''}</span>
           <button className="ghost" onClick={() => setBench(false)} title="Terug naar de volledige Scout-weergave">⇱ volledig</button></div>
         <div className="bsc"><small>{teamName}</small><b onClick={fixScore} title="Tik om de stand te corrigeren">{d.us}</b><span className={'arr ' + (d.serve === 'us' ? 'l' : 'r')}>{d.serve === 'us' ? '◀' : '▶'}</span><b onClick={fixScore} title="Tik om de stand te corrigeren">{d.them}</b><small>{match.opp}</small></div>
-        <div className="br"><button onClick={undo} disabled={!scout.events.filter(e => e.set === set).length}>↶ Ongedaan</button><button onClick={sub}>Wissel…</button><button className={setDone ? 'primary' : ''} onClick={closeSet}>Set afsluiten</button></div>
+        <div className="br"><button onClick={undo} disabled={!scout.events.filter(e => e.set === set).length}>↶ Ongedaan</button><button onClick={sub}>Wissel…</button>{nextSetIdx == null && target && d.us === target.us && d.them === target.them ? <span className="hint">✓ laatste set</span> : <button className={setDone ? 'primary' : ''} onClick={closeSet}>{target ? 'Naar set ' + (nextSetIdx != null ? nextSetIdx + 1 : '') : 'Set afsluiten'}</button>}</div>
       </div>
       <div className="bmain">
         <div className="bleft">
@@ -311,7 +314,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
       {target && !setDone && d.us + d.them === 0 && <div className="target">Setstand uit de wedstrijd: {target.us}-{target.them}. Je scouting moet daarop uitkomen.</div>}
       {(setDone || d.us + d.them > 0) && <div className={'setclose' + (setDone ? ' done ' + setDone : '')}>
         {setDone ? <span><b>Set {set + 1} {setDone === 'us' ? 'gewonnen' : 'verloren'} {d.us}-{d.them}</b> · sets {setsWon[0] + (setDone === 'us' ? 1 : 0)}–{setsWon[1] + (setDone === 'them' ? 1 : 0)}</span> : <span className="hint">Set {set + 1} · {d.us}-{d.them}{target ? ` · vastgelegd in wedstrijd: ${target.us}-${target.them}` : ''}</span>}
-        <button className={setDone ? 'primary' : 'ghost'} onClick={closeSet}>Set afsluiten{set < 4 ? ' → set ' + (set + 2) : ''}</button></div>}
+        {target && d.us === target.us && d.them === target.them && nextSetIdx == null ? <span className="hint">✓ laatste set, scouting compleet</span> : <button className={setDone ? 'primary' : 'ghost'} onClick={closeSet}>{target ? 'Naar' : 'Set afsluiten →'}{nextSetIdx != null ? ' set ' + (nextSetIdx + 1) : ' afronden'}</button>}</div>}
       <RallyStrip />
       <div className="steps">
         {!bench && <><div className="hint">1. Wie <kbd>W</kbd>/<kbd>T</kbd></div>
