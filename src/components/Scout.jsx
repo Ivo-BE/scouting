@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { POS, setWinner } from '../lib/volley.js'
+import { POS, setWinner, matchState, playedSet } from '../lib/volley.js'
 import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, benchNext, benchStart, setterZone, distribution, ROLES, roleOf, expectedZone, autoLibFor, receives, SYSTEMS, systemOf, setterId, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
 import { reportHtml } from './ScoutReport.js'
 import Modal from './Modal.jsx'
@@ -279,7 +279,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
     </section>
     <section className="panel scout-right">
       <div className="state"><div><h2>{teamName}</h2><div className="score">{d.us}</div></div><div><h2>{match.opp}</h2><div className="score">{d.them}</div></div></div>
-      <div className="row wrap"><label className="hint">Set <select value={set} onChange={e => setSet(+e.target.value)}>{match.sets.map((_, i) => <option key={i} value={i}>{i + 1}</option>)}</select></label>
+      <div className="row wrap"><label className="hint">Set <select value={set} onChange={e => setSet(+e.target.value)}>{match.sets.map((st, i) => { const over = matchState(match).over; const lastPlayed = match.sets.reduce((a, x, j) => playedSet(x) ? j : a, -1); const show = over ? playedSet(st) : i <= lastPlayed + 1; return show ? <option key={i} value={i}>{i + 1}{playedSet(st) ? ` (${st.us || 0}-${st.them || 0})` : ''}</option> : null })}</select></label>
         <label className="hint">Start opslag <select value={scout.serveFirst[set] || 'us'} onChange={e => setScout(s => ({ ...s, serveFirst: { ...s.serveFirst, [set]: e.target.value } }))}><option value="us">wij</option><option value="them">zij</option></select></label>
         <span className="hint">Opslag nu: {d.serve === 'us' ? teamName : match.opp}</span></div>
       <div className="row wrap"><button onClick={() => push({ type: 'adj', what: 'serve' })}>⇄ opslag</button><button onClick={() => push({ type: 'adj', what: 'rotUs' })}>↻ wij</button><button onClick={() => push({ type: 'adj', what: 'rotThem' })}>↻ zij</button><button onClick={sub}>Wissel…</button></div>

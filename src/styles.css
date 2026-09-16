@@ -258,3 +258,8 @@
   .doc th,.doc td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}.doc th{background:#F3F6FC}
   .doc code,.doc pre{background:#F3F6FC;border-radius:4px;padding:1px 5px;font-size:13px}.doc pre{padding:10px;overflow:auto}.doc hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   .doc mark{background:#FFE58A}.doc ul,.doc ol{padding-left:22px}.doc li{margin:2px 0}
+
+  details.rolesbox summary{cursor:pointer;font-size:13px;font-weight:600;list-style:none;display:flex;gap:6px;align-items:center}
+  details.rolesbox summary::before{content:"▸";color:var(--mute)}details.rolesbox[open] summary::before{content:"▾"}
+  details.rolesbox summary::-webkit-details-marker{display:none}
+  details.rolesbox>div{margin-top:8px}

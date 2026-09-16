@@ -7,6 +7,7 @@ const label = p => p ? `${p.nr ? p.nr + ' ' : ''}${p.name}` : '–'
 
 export default function SetCard({ i, st, match, roster, active, update, onNext, flash }) {
   const [subK, setSubK] = useState(null)
+  const [rolesOpen, setRolesOpen] = useState(() => localStorage.getItem('rolesOpen') === '1')
   const player = id => roster.find(p => p.id === id)
   const l = lineup(st), used = st.pos.filter(Boolean), full = used.length === 6 && new Set(used).size === 6
   const act = (what, fn) => update(fn(snap(st, what)))
@@ -48,13 +49,14 @@ export default function SetCard({ i, st, match, roster, active, update, onNext, 
     {winner && <div className={'setdone ' + winner}>Set {winner === 'us' ? 'gewonnen' : 'verloren'} {st.us || 0}-{st.them || 0} · stand in sets {ms.w}–{ms.l}
       {ms.over ? <> · <b>wedstrijd {ms.w > ms.l ? 'gewonnen' : 'verloren'}</b></> : i < 4 && <button onClick={onNext}>Naar set {i + 2} →</button>}</div>}
     {st.locked && <div className="hint" style={{ marginTop: 6 }}>Rotatie {st.rot} · tik op een speler om te wisselen ({st.subs.length}/6){st.timeouts.length ? ' · TO bij ' + st.timeouts.join(', ') : ''}</div>}
-    {full && <div className="extra rolesbox">
-      <div><label>Rollen deze set <span className="hint">(basis uit de spelerslijst; hier aanpassen als iemand anders speelt)</span></label>
+    {full && <details className="extra rolesbox" open={rolesOpen} onToggle={e => { setRolesOpen(e.target.open); localStorage.setItem('rolesOpen', e.target.open ? '1' : '') }}>
+      <summary>Rollen en systeem deze set <span className="hint">{st.system ? '· ' + st.system : ''}{Object.values(st.roles || {}).filter(Boolean).length ? ` · ${Object.values(st.roles || {}).filter(Boolean).length} aangepast` : ''}</span></summary>
+      <div><label className="hint">Basis uit de spelerslijst; hier aanpassen als iemand deze set anders speelt</label>
         <div className="roles">{st.pos.map(id => { const p = player(id); if (!p) return null; const v = st.roles?.[id] ?? ''
           return <label key={id} className="rolesel"><span>{p.nr} {p.name}</span><select value={v} onChange={e => update({ ...st, roles: { ...(st.roles || {}), [id]: e.target.value || undefined } })}>
             <option value="">{ROLES[p.role] || 'rol?'}</option>{Object.entries(ROLES).filter(([k]) => k !== 'L').map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label> })}</div></div>
       <div><label>Systeem</label><select value={st.system || ''} onChange={e => update({ ...st, system: e.target.value || undefined })}><option value="">{i ? 'zoals vorige set' : '1-5 (standaard)'}</option>{Object.entries(SYSTEMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-    </div>}
+    </details>}
     <div className="extra">
       <div><label>Libero</label><select value={st.libero} onChange={e => update({ ...st, libero: e.target.value })}>
         <option value="">–</option>{roster.filter(p => p.lib || p.id === st.libero).map(p => <option key={p.id} value={p.id}>{label(p)}</option>)}</select></div>

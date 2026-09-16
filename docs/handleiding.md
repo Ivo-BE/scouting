@@ -349,7 +349,7 @@ Kost één tik extra per rally. In **Statistieken** en in het **Rapport** versch
 
 ### 2.17 Rollen: de app weet waar iedereen staat
 
-Geef elke speelster in de spelerslijst een **rol**: Passeur, Midden, Hoek (passer-loper), Opposite of Libero. Per set kun je in het tabblad **Wedstrijd**, onder de bevestigde opstelling, de rol en het systeem van die set aanpassen; Scout neemt dat over. Daarmee leidt de app af waar iemand in de rally staat, los van haar rotatiepositie:
+Geef elke speelster in de spelerslijst een **rol**: Passeur, Midden, Hoek (passer-loper), Opposite of Libero. Per set kun je in het tabblad **Wedstrijd**, in het inklapbare vak "Rollen en systeem deze set" onder de opstelling, de rol en het systeem van die set aanpassen; Scout neemt dat over. Daarmee leidt de app af waar iemand in de rally staat, los van haar rotatiepositie:
 
 | Actie | Voorspeler | Achterspeler |
 |---|---|---|
@@ -402,6 +402,7 @@ Speelt iemand deze set op een andere plek (invalster), gebruik dan **Rollen deze
 
 | Datum | Wat |
 |---|---|
+| 16 sep 2026 | Scout toont alleen gespeelde sets; rollenvak per set inklapbaar; setstanden in de wedstrijdkeuze van Scout |
 | 16 sep 2026 | Handleiding in de app; wedstrijd vergrendelen na uitslag; scouting volgt de setstanden uit de wedstrijd; geen punten na setwinst |
 | 16 sep 2026 | Rollen en systeem per set in Wedstrijd (Passeur, Midden, Hoek, Opposite, Libero); Scout neemt ze over |
 | 16 sep 2026 | Telefoonweergave; Set afsluiten vanuit Scout; libero serveert nooit |
