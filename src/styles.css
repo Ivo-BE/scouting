@@ -263,3 +263,11 @@
   details.rolesbox summary::before{content:"▸";color:var(--mute)}details.rolesbox[open] summary::before{content:"▾"}
   details.rolesbox summary::-webkit-details-marker{display:none}
   details.rolesbox>div{margin-top:8px}
+
+  .hist li{display:block;padding:8px 0}
+  .hist .h1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.hist .h1 .d{font:700 16px "Barlow Condensed";min-width:auto}
+  .hist .h1 .o{font-weight:500}.hist .h1 .o span{color:var(--mute);font-weight:400}.hist .lock{font-size:12px}
+  .hist .h2{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap}
+  .hist .h2 .r{font-size:13px;color:var(--mute)}.hist .h2 .r b{color:var(--ink)}
+  .hist .acts{display:flex;gap:2px}.hist .acts button{padding:3px 7px;font-size:12px}.hist .acts .del{color:var(--warn)}
+  @media(max-width:840px){.hist li{grid-template-columns:none;grid-template-rows:none}.hist li>span:last-child{display:contents}}
