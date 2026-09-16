@@ -14,5 +14,6 @@ export default function Auth() {
     {sent ? <p className="ok">Link verstuurd naar {email}. Open die op dit toestel.</p> :
       <form onSubmit={send}><input type="email" required placeholder="jij@voorbeeld.be" value={email} onChange={e => setEmail(e.target.value)} /><button className="primary">Stuur inloglink</button></form>}
     {err && <p className="err">{err}</p>}
+    <p className="powered">Powered by Triple Spark</p>
   </div>
 }

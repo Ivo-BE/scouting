@@ -245,3 +245,16 @@
   fieldset.lockable{border:0;padding:0;margin:0;min-width:0}fieldset.lockable:disabled{opacity:.75}
   fieldset.lockable:disabled .pos button,fieldset.lockable:disabled select,fieldset.lockable:disabled input{cursor:not-allowed}
   .scout .target{font-size:12px;color:var(--mute)}
+
+  .powered{text-align:center;color:var(--mute);font-size:12px;margin:24px 0 0}.powered a{color:var(--mute)}
+  .manual{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start}
+  @media(max-width:840px){.manual{grid-template-columns:1fr}.manual .toc{position:static}}
+  .manual .toc{position:sticky;top:10px;display:grid;gap:8px}.manual .toc input{width:100%}
+  .manual .toc nav{display:grid;gap:2px;max-height:70vh;overflow:auto;font-size:13px}
+  .manual .toc a{color:var(--ink);text-decoration:none;padding:2px 6px;border-radius:4px}.manual .toc a:hover{background:#EEF1F5}
+  .manual .toc a.l1{font-weight:700;margin-top:6px}.manual .toc a.l2{font-weight:600}.manual .toc a.l3{padding-left:16px;color:var(--mute)}
+  .doc{line-height:1.55;font-size:15px}.doc h1{font:700 30px "Barlow Condensed";margin:0 0 6px}.doc h2{font:700 24px "Barlow Condensed";margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .doc h3{font:700 18px "Barlow Condensed";margin:18px 0 6px}.doc p{margin:6px 0}.doc table{border-collapse:collapse;width:100%;margin:8px 0;font-size:14px}
+  .doc th,.doc td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}.doc th{background:#F3F6FC}
+  .doc code,.doc pre{background:#F3F6FC;border-radius:4px;padding:1px 5px;font-size:13px}.doc pre{padding:10px;overflow:auto}.doc hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+  .doc mark{background:#FFE58A}.doc ul,.doc ol{padding-left:22px}.doc li{margin:2px 0}

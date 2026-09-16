@@ -32,8 +32,9 @@ npm test                  # wedstrijdlogica
 "Coach toevoegen" koppelt een collega op e-mail. Die moet eerst zelf één keer ingelogd zijn.
 
 ## Structuur
-- `supabase/schema.sql` — tabellen `teams`, `team_members`, `players`, `matches` (sets en scout als JSONB) + RLS. Al eerder uitgevoerd? Draai dan de losse migraties in `supabase/` (`migrations_002_scout.sql`, `migrations_003_setter.sql`).
+- `supabase/schema.sql` — tabellen `teams`, `team_members`, `players`, `matches` (sets en scout als JSONB) + RLS. Al eerder uitgevoerd? Draai dan de losse migraties in `supabase/` (`migrations_002_scout.sql`, `migrations_003_setter.sql`, `migrations_004_role.sql`).
 - `src/lib/volley.js` — pure wedstrijdlogica (wisselregel, rotatie, setwinnaar, undo, verslag, csv). Getest in `tests/`.
 - `src/lib/db.js` — alle Supabase-calls, incl. import van de oude export en Backup/Herstel (volledige ploeg als JSON; Herstel voegt toe of overschrijft op id, verwijdert nooit).
+- `docs/handleiding.md` — de handleiding, in de app onder "Handleiding". Bij elke functionele wijziging bijwerken (incl. de tabel "Wijzigingen" onderaan).
 - `src/components/` — UI. `SetCard` is het veld per set.
 - `public/sw.js` — offline app-shell; data komt altijd van Supabase, het lopende concept staat ook in localStorage.

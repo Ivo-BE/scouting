@@ -11,6 +11,7 @@ import Report from './components/Report.jsx'
 import Stats from './components/Stats.jsx'
 import Modal from './components/Modal.jsx'
 import Scout from './components/Scout.jsx'
+import Manual from './components/Manual.jsx'
 
 const DRAFT = 'opstellingen:draft'
 
@@ -104,6 +105,7 @@ export default function App() {
         <div className="io">
           <button className={view === 'match' ? 'on' : ''} onClick={() => setView('match')}>Wedstrijd</button>
           <button className={view === 'scout' ? 'on' : ''} onClick={() => setView('scout')}>Scout</button>
+          <button className={view === 'manual' ? 'on' : ''} onClick={() => setView('manual')}>Handleiding</button>
           <button onClick={() => setModal({ type: 'members' })}>Coach toevoegen</button>
           <button onClick={() => download(`seizoen-${team.name.replace(/\s+/g, '-')}-${today()}.csv`, csv(matches, roster), 'text/csv;charset=utf-8')}>Seizoen als Excel</button>
           <button onClick={() => fileRef.current.click()}>Importeer oude export</button><input ref={fileRef} type="file" accept=".json" hidden onChange={importJson} />
@@ -113,7 +115,7 @@ export default function App() {
         </div></div>
     </header>
     {(msg || err) && <div className={'toast ' + (err ? 'err' : '')}>{err || msg}</div>}
-    {view === 'scout' ? <Scout matches={matches} roster={roster} teamName={team.name} onSaveScout={saveScout} onUpdateMatch={updateMatch} flash={flash} /> :
+    {view === 'manual' ? <Manual /> : view === 'scout' ? <Scout matches={matches} roster={roster} teamName={team.name} onSaveScout={saveScout} onUpdateMatch={updateMatch} flash={flash} /> :
     <div className="grid">
       <div className="side">
         <Roster teamId={team.id} roster={roster} setRoster={setRoster} onStats={() => setModal({ type: 'stats' })} />
@@ -121,6 +123,7 @@ export default function App() {
       </div>
       <Match match={match} setMatch={setMatch} roster={roster} onSave={save} onNew={() => setMatch(newMatch())} onReport={() => setModal({ type: 'report', match })} flash={flash} />
     </div>}
+    <footer className="powered">Powered by <a href="https://triplespark.be" target="_blank" rel="noopener">Triple Spark</a></footer>
     {modal?.type === 'report' && <Report match={modal.match} roster={roster} teamName={team.name} onClose={() => setModal(null)} flash={flash} />}
     {modal?.type === 'stats' && <Stats roster={roster} matches={matches} onClose={() => setModal(null)} />}
     {modal?.type === 'members' && <Members teamId={team.id} onClose={() => setModal(null)} flash={flash} fail={fail} />}
