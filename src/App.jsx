@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase, configured } from './lib/supabase.js'
 import * as db from './lib/db.js'
-import { newMatch, fixMatch, csv, today } from './lib/volley.js'
+import { newMatch, fixMatch, csv, today, matchState } from './lib/volley.js'
 import Auth from './components/Auth.jsx'
 import TeamSetup from './components/TeamSetup.jsx'
 import Roster from './components/Roster.jsx'
@@ -42,8 +42,10 @@ export default function App() {
 
   async function save() {
     if (!match.opp.trim()) { flash('Vul eerst de tegenstander in'); document.getElementById('opp')?.focus(); return }
-    try { const saved = await db.saveMatch(team.id, match); setMatch(saved)
-      setMatches(ms => [saved, ...ms.filter(m => m.id !== saved.id)].sort((a, b) => b.date.localeCompare(a.date))); flash('Wedstrijd bewaard') } catch (e) { fail(e) }
+    const over = matchState(match).over
+    const toSave = over && !match.locked ? { ...match, locked: true } : match
+    try { const saved = await db.saveMatch(team.id, toSave); setMatch({ ...saved, scout: match.scout })
+      setMatches(ms => [{ ...saved, scout: match.scout }, ...ms.filter(m => m.id !== saved.id)].sort((a, b) => b.date.localeCompare(a.date))); flash(over ? 'Wedstrijd bewaard en vergrendeld' : 'Wedstrijd bewaard') } catch (e) { fail(e) }
   }
   function open(m) { setMatch(fixMatch(JSON.parse(JSON.stringify(m)))); document.getElementById('match')?.scrollIntoView({ behavior: 'smooth' }) }
   function copy(m) {

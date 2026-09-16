@@ -240,3 +240,8 @@
   .rolesbox{background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:8px}
   .roles{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px}
   .rolesel{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px}.rolesel select{font-size:12px;padding:3px 4px;max-width:110px}
+
+  .lockbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:#FFF4E5;border:1px solid #F5C98A;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px}
+  fieldset.lockable{border:0;padding:0;margin:0;min-width:0}fieldset.lockable:disabled{opacity:.75}
+  fieldset.lockable:disabled .pos button,fieldset.lockable:disabled select,fieldset.lockable:disabled input{cursor:not-allowed}
+  .scout .target{font-size:12px;color:var(--mute)}

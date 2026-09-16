@@ -94,7 +94,9 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   }
   function setTo(zone) { setScout(s => ({ ...s, events: s.events.map(e => e.id === askTo ? { ...e, to: zone } : e) })); setAskTo(null) }
   function openReport() { const win = window.open('', '_blank'); if (!win) { flash('Sta pop-ups toe voor het rapport'); return } win.document.write(reportHtml(match, scout, roster, teamName)); win.document.close() }
+  const target = (() => { const st = match.sets[set]; return st.us !== '' && st.them !== '' ? { us: +st.us, them: +st.them } : null })()
   function pointAfter(team, dd) {
+    if (target) { const nu = dd.us + (team === 'us'), nt = dd.them + (team === 'them'); if (nu > target.us || nt > target.them) { flash(`Setstand in de wedstrijd is ${target.us}-${target.them}; ${team === 'us' ? teamName : match.opp} kan geen extra punt krijgen. Corrigeer eerst de wedstrijd (ontgrendelen) als de stand fout is.`); return } }
     if (setWinner({ us: String(dd.us), them: String(dd.them) }, set)) { flash(`Set ${set + 1} is beslist (${dd.us}-${dd.them}) — sluit de set af of maak het laatste punt ongedaan`); return }
     push({ type: 'point', team, us: dd.us + (team === 'us'), them: dd.them + (team === 'them') })
     const serveNext = dd.serve === team ? team : team   // winnaar serveert altijd
@@ -103,13 +105,19 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   }
   function point(team) { pointAfter(team, d) }
   const setDone = setWinner({ us: String(d.us), them: String(d.them) }, set)
-  const setsWon = match.sets.reduce((a, st, i) => { const r = setWinner(st, i); return r === 'us' ? [a[0] + 1, a[1]] : r === 'them' ? [a[0], a[1] + 1] : a }, [0, 0])
+  const setsWon = match.sets.reduce((a, st, i) => { if (i === set) return a; const r = setWinner(st, i); return r === 'us' ? [a[0] + 1, a[1]] : r === 'them' ? [a[0], a[1] + 1] : a }, [0, 0])
   function closeSet() {
-    if (!setDone && !confirm(`Stand ${d.us}-${d.them} is geen setwinst. Set ${set + 1} toch afsluiten met deze stand?`)) return
+    if (target && (d.us !== target.us || d.them !== target.them)) {
+      if (!confirm(`De wedstrijd staat op ${target.us}-${target.them}, je scouting op ${d.us}-${d.them}. De setstand blijft ${target.us}-${target.them}. Toch naar set ${set + 2}?`)) return
+      const nextServe = (scout.serveFirst[set] || 'us') === 'us' ? 'them' : 'us'
+      setScout(s => ({ ...s, serveFirst: { ...s.serveFirst, [set + 1]: nextServe } })); if (set < 4) setSet(set + 1); return
+    }
+    if (!target && !setDone && !confirm(`Stand ${d.us}-${d.them} is geen setwinst. Set ${set + 1} toch afsluiten met deze stand?`)) return
+    if (match.locked && !target) { flash('Wedstrijd is vergrendeld; ontgrendel eerst in het tabblad Wedstrijd'); return }
     const sets = match.sets.map((st, i) => i === set ? { ...st, us: String(d.us), them: String(d.them), locked: true } : st)
     const nextServe = (scout.serveFirst[set] || 'us') === 'us' ? 'them' : 'us'
     const sc = { ...scoutRaw, serveFirst: { ...scoutRaw.serveFirst, [set + 1]: nextServe } }
-    setScout(sc); onUpdateMatch({ ...match, sets, scout: sc })
+    setScout(sc); if (target) { /* stand stond al vast */ } else onUpdateMatch({ ...match, sets, scout: sc })
     if (set < 4) { const nxt = match.sets[set + 1]; setSet(set + 1); if (!nxt.locked) flash(`Set ${set + 2}: startopstelling nog bevestigen in het tabblad Wedstrijd`) }
   }
   function fixScore() {
@@ -242,8 +250,9 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
         <select defaultValue="1" onChange={e => v.current.playbackRate = +e.target.value}><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.5">1.5×</option></select>
       </div>}
       {d.servers.length < 6 && !bench && <div className="banner">Rugnummers van {match.opp} nog niet (volledig) bekend voor set {set + 1}. <button onClick={setOppLineup}>Invullen…</button> <span className="hint">of laat de app ze leren bij hun opslag</span></div>}
+      {target && !setDone && d.us + d.them === 0 && <div className="target">Setstand uit de wedstrijd: {target.us}-{target.them}. Je scouting moet daarop uitkomen.</div>}
       {(setDone || d.us + d.them > 0) && <div className={'setclose' + (setDone ? ' done ' + setDone : '')}>
-        {setDone ? <span><b>Set {set + 1} {setDone === 'us' ? 'gewonnen' : 'verloren'} {d.us}-{d.them}</b> · sets {setsWon[0] + (setDone === 'us' ? 1 : 0)}–{setsWon[1] + (setDone === 'them' ? 1 : 0)}</span> : <span className="hint">Set {set + 1} · {d.us}-{d.them}</span>}
+        {setDone ? <span><b>Set {set + 1} {setDone === 'us' ? 'gewonnen' : 'verloren'} {d.us}-{d.them}</b> · sets {setsWon[0] + (setDone === 'us' ? 1 : 0)}–{setsWon[1] + (setDone === 'them' ? 1 : 0)}</span> : <span className="hint">Set {set + 1} · {d.us}-{d.them}{target ? ` · vastgelegd in wedstrijd: ${target.us}-${target.them}` : ''}</span>}
         <button className={setDone ? 'primary' : 'ghost'} onClick={closeSet}>Set afsluiten{set < 4 ? ' → set ' + (set + 2) : ''}</button></div>}
       <RallyStrip />
       <div className="steps">

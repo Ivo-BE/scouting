@@ -23,6 +23,7 @@ create table if not exists players (
   is_libero boolean not null default false,
   is_captain boolean not null default false,
   is_setter boolean not null default false,
+  role text not null default '',        -- S setter, M midden, B buiten, H hoek, L libero
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -98,3 +99,5 @@ end $$;
 alter table matches add column if not exists scout jsonb not null default '{}'::jsonb;
 
 alter table players add column if not exists is_setter boolean not null default false;
+alter table players add column if not exists role text not null default '';
+alter table matches add column if not exists locked boolean not null default false;
