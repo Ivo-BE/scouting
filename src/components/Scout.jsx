@@ -227,7 +227,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   return <div className={'scout' + (bench ? ' bench' : '')}>
     <section className="panel scout-left">
       <div className="row wrap">
-        <select value={matchId} onChange={e => setMatchId(e.target.value)}>{matches.map(m => <option key={m.id} value={m.id}>{m.date} · {m.opp}</option>)}</select>
+        <select value={matchId} onChange={e => setMatchId(e.target.value)}>{matches.map(m => { const sc = m.sets.filter(st => st.us !== '' || st.them !== '').map(st => `${st.us}-${st.them}`).join(', '); return <option key={m.id} value={m.id}>{m.date} · {m.opp}{sc ? ' · ' + sc : ' · (geen stand)'}{m.locked ? ' 🔒' : ''}</option> })}</select>
         <label className="filebtn"><input type="file" accept="video/*" hidden onChange={e => { const f = e.target.files[0]; if (f) { v.current.src = URL.createObjectURL(f); setVideoName(f.name) } }} />{videoName || 'Video kiezen…'}</label>
         <button onClick={() => setModal('stats')}>Statistieken</button>
         <button onClick={openReport}>Rapport (PDF)</button>
