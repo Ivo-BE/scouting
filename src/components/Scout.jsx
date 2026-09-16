@@ -10,7 +10,7 @@ const uid = () => Math.random().toString(36).slice(2, 9)
 export default function Scout({ matches, roster, teamName, onSaveScout, onUpdateMatch, flash }) {
   const [matchId, setMatchId] = useState(matches[0]?.id || '')
   const match = matches.find(m => m.id === matchId)
-  const [scout, setScout] = useState(() => fixScout(match?.scout))
+  const [scoutRaw, setScout] = useState(() => fixScout(match?.scout))
   const [set, setSet] = useState(0)
   const [pending, setPending] = useState({ team: null, act: null, zone: null, lib: false })
   const [libForManual, setLibForManual] = useState('')
@@ -39,13 +39,18 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   useEffect(() => { if (smart && match) setPending({ ...startStep(derive(match, fixScout(match.scout), set).serve), lib: false }) }, [matchId, set, smart, bench, ownOnly])
   useEffect(() => {              // spiegel in de browser meteen; database kort daarna
     if (!match) return
-    try { localStorage.setItem(LS(match.id), JSON.stringify(scout)) } catch {}
+    try { localStorage.setItem(LS(match.id), JSON.stringify(scoutRaw)) } catch {}
     dirty.current = true
-    clearTimeout(saveT.current); saveT.current = setTimeout(async () => { await onSaveScout(match, scout); dirty.current = false }, 400)
+    clearTimeout(saveT.current); saveT.current = setTimeout(async () => { await onSaveScout(match, scoutRaw); dirty.current = false }, 400)
     return () => clearTimeout(saveT.current)
-  }, [scout])
-  useEffect(() => { const h = () => { if (document.hidden && dirty.current && match) { clearTimeout(saveT.current); onSaveScout(match, scout); dirty.current = false } }; document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h) }, [scout, match])
+  }, [scoutRaw])
+  useEffect(() => { const h = () => { if (document.hidden && dirty.current && match) { clearTimeout(saveT.current); onSaveScout(match, scoutRaw); dirty.current = false } }; document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h) }, [scoutRaw, match])
 
+  // rollen en systeem: eerst uit de wedstrijdopstelling (tabblad Wedstrijd), dan de noodcorrectie in Scout
+  const scout = (() => { if (!match) return scoutRaw
+    const roles = {}, system = {}
+    match.sets.forEach((st, i) => { roles[i] = { ...(st.roles || {}), ...((scoutRaw.roles || {})[i] || {}) }; if (st.system) system[i] = st.system })
+    return { ...scoutRaw, roles, system: { ...system, ...(scoutRaw.system || {}) } } })()
   if (!match) return <section className="panel"><h2>Scout</h2><p className="hint">Bewaar eerst een wedstrijd met startopstellingen; die kies je hier dan om te analyseren.</p></section>
   const d = derive(match, scout, set)
   const now = () => v.current?.currentTime || 0
@@ -103,7 +108,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
     if (!setDone && !confirm(`Stand ${d.us}-${d.them} is geen setwinst. Set ${set + 1} toch afsluiten met deze stand?`)) return
     const sets = match.sets.map((st, i) => i === set ? { ...st, us: String(d.us), them: String(d.them), locked: true } : st)
     const nextServe = (scout.serveFirst[set] || 'us') === 'us' ? 'them' : 'us'
-    const sc = { ...scout, serveFirst: { ...scout.serveFirst, [set + 1]: nextServe } }
+    const sc = { ...scoutRaw, serveFirst: { ...scoutRaw.serveFirst, [set + 1]: nextServe } }
     setScout(sc); onUpdateMatch({ ...match, sets, scout: sc })
     if (set < 4) { const nxt = match.sets[set + 1]; setSet(set + 1); if (!nxt.locked) flash(`Set ${set + 2}: startopstelling nog bevestigen in het tabblad Wedstrijd`) }
   }
@@ -271,7 +276,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
       <div className="row wrap"><button onClick={() => push({ type: 'adj', what: 'serve' })}>⇄ opslag</button><button onClick={() => push({ type: 'adj', what: 'rotUs' })}>↻ wij</button><button onClick={() => push({ type: 'adj', what: 'rotThem' })}>↻ zij</button><button onClick={sub}>Wissel…</button></div>
       <h2>{teamName} <span className="hint">rotatie {d.rotUs}</span></h2><Court team="us" />
       <label className="hint">Libero staat in voor <select value={libForManual} onChange={e => setLibForManual(e.target.value)}><option value="">{autoLibFor(match, roster, scout, set, d) ? 'automatisch (midden achteraan)' : 'niemand'}</option>{match.sets[set].pos.filter(Boolean).map(id => { const p = roster.find(x => x.id === id); return p && <option key={id} value={id}>{p.nr} {p.name}</option> })}</select></label>
-      <div className="row"><label className="hint">Systeem <select value={systemOf(scout, set)} onChange={e => setScout(s => ({ ...s, system: { ...(s.system || {}), [set]: e.target.value } }))}>{Object.entries(SYSTEMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label><button onClick={() => setModal('roles')}>Rollen deze set…</button></div>
+      <div className="row"><label className="hint">Systeem <select value={systemOf(scout, set)} onChange={e => setScout(s => ({ ...s, system: { ...(s.system || {}), [set]: e.target.value } }))} title="Komt uit de wedstrijdopstelling; hier tijdelijk aan te passen">{Object.entries(SYSTEMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label><button onClick={() => setModal('roles')}>Rollen deze set…</button></div>
       <h2>{match.opp} <span className="hint">{d.servers.length >= 6 ? 'rotatie bekend' : `${d.servers.length}/6 servers`}</span></h2><Court team="them" />
       <div className="row"><button onClick={setOppLineup}>Rugnummers {match.opp}…</button></div>
       <div className="hint">Vul hun zes nummers in zoals ze staan (I t/m VI), of laat de app ze leren: bij een onbekende server vraagt hij het nummer. <kbd>L</kbd> = libero-markering voor de volgende tag.</div>
@@ -293,10 +298,10 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
       <div className="court"><div className="floor">{[[2, 3, 4], [1, 6, 5]].map((row, ri) => row.map(z => <div key={z} className="pos scell" style={{ order: ri * 3 }} onClick={() => setTo(z)}><small>zone</small><b>{z}</b></div>))}</div></div>
       <button className="ghost" onClick={() => setAskTo(null)}>Sla over</button></Modal>}
     {modal === 'roles' && <Modal onClose={() => setModal(null)}><h2>Rollen in set {set + 1}</h2>
-      <p>Basisrol staat bij de speler. Wijk hier af als iemand deze set op een andere plek speelt. De rol bepaalt waar de app haar verwacht bij aanval, blok en receptie, en voor wie de libero invalt.</p>
+      <p>Rollen komen uit de spelerslijst en de opstelling van deze set (tabblad Wedstrijd). Wijk hier alleen af voor een snelle correctie tijdens het scouten.</p>
       <table className="stats"><tbody>{[...roster].filter(p => onCourtIds.has(p.id) || p.id === libId).sort((a, b) => (+a.nr || 99) - (+b.nr || 99)).map(p => <tr key={p.id}><td style={{ textAlign: 'left' }}>{p.nr} {p.name}</td>
-        <td><select value={scout.roles?.[set]?.[p.id] ?? ''} onChange={e => setScout(s => ({ ...s, roles: { ...(s.roles || {}), [set]: { ...((s.roles || {})[set] || {}), [p.id]: e.target.value || undefined } } }))}>
-          <option value="">basis: {ROLES[p.role] || 'geen'}</option>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td></tr>)}</tbody></table>
+        <td><select value={scoutRaw.roles?.[set]?.[p.id] ?? ''} onChange={e => setScout(s => ({ ...s, roles: { ...(s.roles || {}), [set]: { ...((s.roles || {})[set] || {}), [p.id]: e.target.value || undefined } } }))}>
+          <option value="">{ROLES[match.sets[set].roles?.[p.id] || p.role] || 'geen'} (uit wedstrijd)</option>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td></tr>)}</tbody></table>
       <button className="ghost" onClick={() => setModal(null)}>Sluit</button></Modal>}
     {modal === 'qhelp' && <Modal onClose={() => setModal(null)}><h2>Kwaliteitscodes</h2>
       <p>Dit zijn de standaardcodes uit Data Volley, zodat je cijfers vergelijkbaar zijn met andere scoutingprogramma's. De betekenis verschilt licht per actie:</p>

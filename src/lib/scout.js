@@ -9,7 +9,7 @@ export const QUALITIES = [['#', 'perfect / punt'], ['+', 'goed'], ['!', 'matig']
 const baseIndex = (rot, d) => _base({ rot }, d)
 
 export function emptyScout() { return { serveFirst: {}, oppServers: {}, oppFirstRot: {}, roles: {}, system: {}, events: [] } }
-export const SYSTEMS = { '5-1': '1-5 — één setter, loopt in', '6-2': '2-4 — twee setters, de achterste verdeelt, de voorste valt aan', '4-2': '4-2 klassiek — de voorste setter verdeelt, valt niet aan' }
+export const SYSTEMS = { '5-1': '1-5 — één passeur, loopt in', '6-2': '2-4 — twee passeurs, de achterste verdeelt, de voorste valt aan', '4-2': '4-2 klassiek — de voorste passeur verdeelt, valt niet aan' }
 // systeem van deze set, anders dat van de dichtstbijzijnde eerdere set, anders 1-5
 export function systemOf(scout, setIdx) { const m = scout.system || {}; for (let i = setIdx; i >= 0; i--) if (m[i]) return m[i]; return '5-1' }
 export const fixScout = s => ({ ...emptyScout(), ...(s || {}) })
@@ -185,8 +185,8 @@ export function distribution(scout) {
   return rows
 }
 
-// --- rollen: basis op de speler, per set te overschrijven in scout.roles[setIdx][playerId]
-export const ROLES = { S: 'Setter', M: 'Midden', B: 'Buiten', H: 'Hoek', L: 'Libero' }
+// --- rollen: basis op de speler; per set in match.sets[i].roles (tabblad Wedstrijd); noodcorrectie in scout.roles[setIdx]
+export const ROLES = { S: 'Passeur', M: 'Midden', B: 'Hoek', H: 'Opposite', L: 'Libero' }
 export const roleOf = (roster, scout, setIdx, id) => (scout.roles?.[setIdx]?.[id]) ?? (roster.find(p => p.id === id)?.role || '')
 const FRONT = new Set([2, 3, 4])
 // verwachte zone in de rally op basis van rol en of ze voor of achter staat (rotationeel)

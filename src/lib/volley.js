@@ -20,6 +20,7 @@ export function fixSet(st) {
   if (!Array.isArray(s.subs)) s.subs = []
   if (!Array.isArray(s.timeouts)) s.timeouts = []
   if (!Array.isArray(s.hist)) s.hist = []
+  if (s.roles && typeof s.roles !== 'object') s.roles = {}
   return s
 }
 export function fixMatch(m) {

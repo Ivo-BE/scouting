@@ -236,3 +236,7 @@
     .scout .scout-right .pos.scell b{font-size:14px}.scout .state .score{font-size:26px}
     .scout>*{min-width:0}.scout .scout-left>.row.wrap{gap:3px}.scout .scout-left>.row.wrap button{padding:6px 5px;font-size:12px;flex:1 1 auto}.scout .scout-left>.row.wrap select{max-width:120px}
   }
+
+  .rolesbox{background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:8px}
+  .roles{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px}
+  .rolesel{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px}.rolesel select{font-size:12px;padding:3px 4px;max-width:110px}
