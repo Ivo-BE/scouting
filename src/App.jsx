@@ -51,6 +51,10 @@ export default function App() {
     c.sets = c.sets.map(s => ({ ...s, us: '', them: '', subs: [], notes: '', timeouts: [], rot: 0, locked: false, hist: [] }))
     setMatch(c); document.getElementById('match')?.scrollIntoView({ behavior: 'smooth' }); flash('Opstelling overgenomen')
   }
+  async function updateMatch(m) {
+    try { const saved = await db.saveMatch(team.id, m); const merged = { ...saved, scout: m.scout }
+      setMatches(ms => ms.map(x => x.id === merged.id ? merged : x)); if (match.id === merged.id) setMatch(fixMatch(merged)); flash(`Set bewaard: ${m.opp}`) } catch (e) { fail(e) }
+  }
   async function saveScout(m, scout) {
     try { const saved = await db.saveScout(m.id, scout); setMatches(ms => ms.map(x => x.id === m.id ? { ...x, scout: saved } : x)) } catch (e) { fail(e) }
   }
@@ -107,7 +111,7 @@ export default function App() {
         </div></div>
     </header>
     {(msg || err) && <div className={'toast ' + (err ? 'err' : '')}>{err || msg}</div>}
-    {view === 'scout' ? <Scout matches={matches} roster={roster} teamName={team.name} onSaveScout={saveScout} flash={flash} /> :
+    {view === 'scout' ? <Scout matches={matches} roster={roster} teamName={team.name} onSaveScout={saveScout} onUpdateMatch={updateMatch} flash={flash} /> :
     <div className="grid">
       <div className="side">
         <Roster teamId={team.id} roster={roster} setRoster={setRoster} onStats={() => setModal({ type: 'stats' })} />

@@ -26,7 +26,8 @@
   /* roster */
   .roster{width:100%;border-collapse:collapse;table-layout:fixed}
   .roster td{padding:3px 2px;border-bottom:1px solid var(--line)}
-  .roster td:first-child{width:56px}.roster td:nth-child(3){width:92px}.roster td:last-child{width:32px}
+  .roster td:first-child{width:56px}.roster td:nth-child(3){width:118px}.roster td:last-child{width:32px}
+  .roster select.role{font-size:12px;padding:3px 4px;max-width:78px}
   .roster input.nr{width:48px;text-align:center;font-weight:600}
   .roster input.nm{width:100%}
   .roster .tag{display:inline-flex;gap:2px}
@@ -213,3 +214,25 @@
   .scout .players button b{font:700 16px "Barlow Condensed"}.scout .players button small{font-size:10px;color:var(--mute)}
   .scout .players button.on small{color:inherit}.scout .players button.libbtn{border-style:dashed}.scout .players button.dim{opacity:.45}
   .scout.bench .players button{padding:9px 10px;min-width:78px}.scout.bench .players button b{font-size:20px}
+
+  .scout .setclose{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);margin:6px 0;font-size:13px;flex-wrap:wrap}
+  .scout .setclose.done.us{background:#E3F4E9;border-color:#9ED2B2}.scout .setclose.done.them{background:#FBE7E5;border-color:#E9A9A4}
+  @media(max-width:600px){
+    .scout{gap:8px}.scout .panel{padding:8px}
+    .scout video{max-height:32vh}
+    .scout .row{gap:4px;margin:4px 0}.scout .row button{padding:8px 6px;font-size:14px}
+    .scout .scout-left>.row.wrap select,.scout .filebtn{font-size:13px;padding:6px 8px}
+    .scout .steps .hint{font-size:11px}
+    .scout .players{gap:3px}.scout .players button{min-width:52px;padding:4px 5px}.scout .players button b{font-size:15px}.scout .players button small{font-size:9px}
+    .scout .minicourt{gap:3px;padding:4px}.scout .minicourt button{min-height:40px;padding:3px}.scout .minicourt button b{font-size:13px}.scout .minicourt button small{font-size:9px}
+    .scout .q button{padding:6px 2px}.scout .q .sym{font-size:16px}.scout .q small{font-size:9px}
+    .scout .row.points{position:sticky;bottom:0;background:var(--paper);padding:6px 0 calc(6px + env(safe-area-inset-bottom));margin:0;z-index:3;border-top:1px solid var(--line)}
+    .scout .row.points button{padding:12px 6px;font-size:15px}.scout .row.points kbd{display:none}
+    .scout .log{max-height:22vh;font-size:12px}
+    .scout .rally{padding:6px}.scout .lane{grid-template-columns:64px 1fr;min-height:28px}.scout .lane .lbl{font-size:11px}.scout .chips{grid-auto-columns:40px}.scout .chip{height:26px;font-size:11px}
+    .scout .rnet{left:70px}
+    .scout .benchhead{padding:8px}.scout .bscore b{font-size:36px}.scout .benchhint{font-size:15px;padding:8px 10px}
+    .scout .scout-right{order:2}.scout .scout-right .court{margin:2px 0}.scout .scout-right .pos{min-height:40px}
+    .scout .scout-right .pos.scell b{font-size:14px}.scout .state .score{font-size:26px}
+    .scout>*{min-width:0}.scout .scout-left>.row.wrap{gap:3px}.scout .scout-left>.row.wrap button{padding:6px 5px;font-size:12px;flex:1 1 auto}.scout .scout-left>.row.wrap select{max-width:120px}
+  }

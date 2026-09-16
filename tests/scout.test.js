@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart, statsRows } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart, statsRows, expectedZone, autoLibFor, setterId } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -81,4 +81,32 @@ test('blok: hoofdblokker krijgt het punt, medeblokkers een assist', () => {
   const sc = { ...emptyScout(), events: [{ type: 'touch', team: 'us', act: 'blok', zone: 3, q: '#', playerNr: '3', blockers: 2, assists: [{ nr: '5' }] }] }
   const rows = statsRows(sc, 'us', roster)
   assert.equal(rows.find(r => r.nr === '3').blk, 1); assert.equal(rows.find(r => r.nr === '5').ass, 1)
+})
+
+test('rollen: aanvalszone volgt de rol, libero valt in voor de midden achteraan', () => {
+  // I=10(B) II=5(S) III=3(M) IV=1(B) V=7(H) VI=8(M)
+  const r2 = roster.map(p => ({ ...p, role: { '1': 'B', '3': 'M', '5': 'S', '7': 'H', '8': 'M', '10': 'B', '12': 'B', '14': 'L' }[p.nr] || '' }))
+  const sc = { ...emptyScout(), serveFirst: { 0: 'us' } }
+  const d = derive(match, sc, 0)
+  assert.equal(expectedZone(match, r2, sc, 0, d, 'p1', 'aanval'), 4)     // buiten voor -> 4 (rotatiezone was al 4)
+  assert.equal(expectedZone(match, r2, sc, 0, d, 'p5', 'aanval'), 2)     // setter voor -> 2
+  assert.equal(expectedZone(match, r2, sc, 0, d, 'p10', 'aanval'), 6)    // buiten achter -> pipe
+  assert.equal(expectedZone(match, r2, sc, 0, d, 'p7', 'aanval'), 1)     // hoek achter -> 1
+  assert.equal(autoLibFor(match, r2, sc, 0, d), 'p8')                      // midden achteraan (VI)
+  const sc2 = { ...sc, roles: { 0: { p8: 'B' } } }                          // per set overschreven: 8 speelt buiten
+  assert.equal(autoLibFor(match, r2, sc2, 0, d), '')
+})
+
+test('systeem bepaalt welke setter de pas geeft', () => {
+  // twee setters: 5 (II, voor) en 7 (V, achter)
+  const r2 = roster.map(p => ({ ...p, role: { '5': 'S', '7': 'S', '3': 'M', '8': 'M', '1': 'B', '10': 'B', '14': 'L' }[p.nr] || '' }))
+  const d = derive(match, emptyScout(), 0)
+  assert.equal(setterId(match, r2, { ...emptyScout(), system: { 0: '6-2' } }, 0, d), 'p7')   // achterste
+  assert.equal(setterId(match, r2, { ...emptyScout(), system: { 0: '4-2' } }, 0, d), 'p5')   // voorste
+})
+
+test('libero serveert nooit: midden op zone 1 blijft zelf staan bij eigen opslag', () => {
+  const r2 = roster.map(p => ({ ...p, role: { '10': 'M', '1': 'B', '3': 'B', '5': 'S', '7': 'H', '8': 'B', '14': 'L' }[p.nr] || '' }))   // 10 (I) is midden
+  assert.equal(autoLibFor(match, r2, { ...emptyScout(), serveFirst: { 0: 'us' } }, 0, derive(match, { ...emptyScout(), serveFirst: { 0: 'us' } }, 0)), '')
+  assert.equal(autoLibFor(match, r2, { ...emptyScout(), serveFirst: { 0: 'them' } }, 0, derive(match, { ...emptyScout(), serveFirst: { 0: 'them' } }, 0)), 'p10')
 })

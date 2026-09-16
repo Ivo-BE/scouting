@@ -8,7 +8,10 @@ export const ACTIONS = [['opslag', 'S'], ['receptie', 'R'], ['pas', 'P'], ['aanv
 export const QUALITIES = [['#', 'perfect / punt'], ['+', 'goed'], ['!', 'matig'], ['-', 'slecht'], ['/', 'geblokt / afgeweerd'], ['=', 'fout']]
 const baseIndex = (rot, d) => _base({ rot }, d)
 
-export function emptyScout() { return { serveFirst: {}, oppServers: {}, oppFirstRot: {}, events: [] } }
+export function emptyScout() { return { serveFirst: {}, oppServers: {}, oppFirstRot: {}, roles: {}, system: {}, events: [] } }
+export const SYSTEMS = { '5-1': '1-5 — één setter, loopt in', '6-2': '2-4 — twee setters, de achterste verdeelt, de voorste valt aan', '4-2': '4-2 klassiek — de voorste setter verdeelt, valt niet aan' }
+// systeem van deze set, anders dat van de dichtstbijzijnde eerdere set, anders 1-5
+export function systemOf(scout, setIdx) { const m = scout.system || {}; for (let i = setIdx; i >= 0; i--) if (m[i]) return m[i]; return '5-1' }
 export const fixScout = s => ({ ...emptyScout(), ...(s || {}) })
 
 // Afgeleide toestand voor één set: stand, wie serveert, rotaties, huidige zes (startslots).
@@ -155,9 +158,16 @@ export function benchNext(e, opts = {}) {
 
 // --- setter op het veld (voor het klaarzetten van de pas): zone van de setter in de huidige rotatie, of null
 export function setterZone(match, roster, scout, setIdx, d) {
-  for (const z of [1, 2, 3, 4, 5, 6]) { const p = ourPlayerAt(match, roster, scout, setIdx, d, z); if (p && roster.find(r => r.id === p.id)?.set) return z }
-  return null
+  const sys = systemOf(scout, setIdx)
+  const setters = []
+  for (const z of [1, 2, 3, 4, 5, 6]) { const p = ourPlayerAt(match, roster, scout, setIdx, d, z, { forceLib: false }); if (p && roleOf(roster, scout, setIdx, p.id) === 'S') setters.push(z) }
+  if (!setters.length) return null
+  const back = setters.filter(z => [1, 5, 6].includes(z)), front = setters.filter(z => [2, 3, 4].includes(z))
+  const z = sys === '6-2' ? (back[0] ?? front[0]) : sys === '4-2' ? (front[0] ?? back[0]) : setters[0]
+  return z
 }
+// wie geeft de pas (speler-id) volgens rol en systeem
+export function setterId(match, roster, scout, setIdx, d) { const z = setterZone(match, roster, scout, setIdx, d); return z ? ourPlayerAt(match, roster, scout, setIdx, d, z, { forceLib: false })?.id || null : null }
 // --- spelverdeling: per rotatie het aandeel aanvallen per aanvalszone, gesplitst naar kwaliteit van de voorafgaande receptie/verdediging
 export function distribution(scout) {
   const rows = Array.from({ length: 6 }, (_, r) => ({ rot: r, total: 0, zones: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }, good: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }, goodN: 0, bad: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }, badN: 0, pas: [] }))
@@ -174,3 +184,36 @@ export function distribution(scout) {
   })
   return rows
 }
+
+// --- rollen: basis op de speler, per set te overschrijven in scout.roles[setIdx][playerId]
+export const ROLES = { S: 'Setter', M: 'Midden', B: 'Buiten', H: 'Hoek', L: 'Libero' }
+export const roleOf = (roster, scout, setIdx, id) => (scout.roles?.[setIdx]?.[id]) ?? (roster.find(p => p.id === id)?.role || '')
+const FRONT = new Set([2, 3, 4])
+// verwachte zone in de rally op basis van rol en of ze voor of achter staat (rotationeel)
+export function expectedZone(match, roster, scout, setIdx, d, id, act) {
+  let rz = null
+  for (const z of [1, 2, 3, 4, 5, 6]) { const p = ourPlayerAt(match, roster, scout, setIdx, d, z, { forceLib: false }); if (p?.id === id) { rz = z; break } }
+  const role = roleOf(roster, scout, setIdx, id)
+  if (role === 'L') return act === 'receptie' || act === 'verdediging' ? (rz && !FRONT.has(rz) ? rz : 5) : (rz || 6)
+  if (!rz) return null
+  const front = FRONT.has(rz)
+  if (act === 'opslag') return 1
+  if (act === 'aanval' || act === 'blok' || act === 'pas') {
+    if (front) return role === 'B' ? 4 : role === 'M' ? 3 : (role === 'S' || role === 'H') ? 2 : rz
+    if (act === 'pas') return role === 'S' ? 2 : rz
+    if (act === 'aanval') return role === 'B' ? 6 : role === 'H' ? 1 : rz
+    return rz
+  }
+  // receptie / verdediging: achterspelers op hun rotatiezone; setter achter verdedigt op 1
+  if (!front && role === 'S') return 1
+  return rz
+}
+// libero valt in voor de midden die achteraan staat (of de speler die de gebruiker koos)
+// libero mag niet serveren: op zone 1 alleen als de tegenstander serveert
+export function autoLibFor(match, roster, scout, setIdx, d) {
+  const zones = d.serve === 'them' ? [1, 5, 6] : [5, 6]
+  for (const z of zones) { const p = ourPlayerAt(match, roster, scout, setIdx, d, z, { forceLib: false }); if (p && roleOf(roster, scout, setIdx, p.id) === 'M') return p.id }
+  return ''
+}
+// ontvangt deze speler normaal? (setter en midden niet)
+export const receives = (roster, scout, setIdx, id) => !['S', 'M'].includes(roleOf(roster, scout, setIdx, id))
