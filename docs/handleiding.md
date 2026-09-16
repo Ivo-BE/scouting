@@ -289,7 +289,8 @@ Uit deze gegevens tekent het rapport per speelster een veldje met pijlen: van wa
 De knop **Bankmodus** maakt van Scout één scherm voor live gebruik op de bank, bijvoorbeeld door een speelster die niet speelt:
 
 - Eén scherm dat op een tablet volledig in beeld past: bovenbalk met set, rotatie, setstand en de **stand** groot (pijltje = wie serveert; tik op de stand om te corrigeren), links het werkvlak, rechts de rallybalk, het log en side-out per rotatie van deze set.
-- Geen veld: je kiest de speelster op een **grote naamknop** met rugnummer, rol en huidige zone ("z6 · achter"). Bankspeelsters staan gedimd, de libero gestippeld. Bij aanval en blok verschijnt een rij met de zes zones waarin de verwachte al oplicht; klopt ze niet, tik één keer op de juiste.
+- Het **veld** is de enige keuze: zes grote vakken met rugnummer, naam en rol. Per actie lichten alleen de logische vakken op (receptie/verdediging: achterrij; blok: voorrij; opslag: zone 1, al geselecteerd); de rest is gedimd maar aantikbaar. De libero staat in haar vak zodra ze de midden achteraan vervangt. Bankspeelsters staan er niet: komt er iemand in, tik **Wissel…**.
+- Bij **pas, aanval en blok** verschuift het veld naar de spelposities na de opslag (passeur naar 2, hoek naar 4, midden naar 3; achteraan hoek op 6 en opposite op 1), zodat je tikt waar de speelster écht staat. Sloeg iemand vanuit een andere zone, tik dan in de rij "Vanuit zone" de juiste. **⇄ spiegel** draait het veld om als de bank aan de andere kant zit.
 - Daaronder één **vraag** die meebeweegt met het spel: "Dames H serveert — wie ving op?", "Wie viel aan, en hoe?", "Rally loopt — tik wat je ziet, of het punt".
 - Alleen de **eigen ploeg**: hun opslag hoef je niet te taggen, de app begint bij jouw receptie. Rugnummers van de tegenstander zijn niet nodig.
 - Kwaliteit in **woorden** (goed / matig / fout; punt / in spel / geblokt / fout). De app vertaalt ze naar de standaardcodes.
@@ -403,7 +404,7 @@ Speelt iemand deze set op een andere plek (invalster), gebruik dan **Rollen deze
 
 | Datum | Wat |
 |---|---|
-| 16 sep 2026 | Bankmodus opnieuw ontworpen voor tablet: alles in beeld, naamknoppen met rol en zone, zone-correctie bij aanval/blok, time-out in het log |
+| 16 sep 2026 | Bankmodus opnieuw ontworpen voor tablet: alles in beeld, het veld als enige keuze met spelposities per fase, zone-correctie bij aanval/blok, spiegelen, time-out in het log |
 | 16 sep 2026 | Scout toont alleen gespeelde sets; rollenvak per set inklapbaar; setstanden in de wedstrijdkeuze van Scout |
 | 16 sep 2026 | Handleiding in de app; wedstrijd vergrendelen na uitslag; scouting volgt de setstanden uit de wedstrijd; geen punten na setwinst |
 | 16 sep 2026 | Rollen en systeem per set in Wedstrijd (Passeur, Midden, Hoek, Opposite, Libero); Scout neemt ze over |

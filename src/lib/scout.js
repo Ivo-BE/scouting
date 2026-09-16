@@ -217,3 +217,18 @@ export function autoLibFor(match, roster, scout, setIdx, d) {
 }
 // ontvangt deze speler normaal? (setter en midden niet)
 export const receives = (roster, scout, setIdx, id) => !['S', 'M'].includes(roleOf(roster, scout, setIdx, id))
+
+// --- veld per fase: welke speler (id) staat in welke zone. 'rotatie' = zoals bij de opslag; 'aanval' = spelposities volgens rol (met terugval op rotatie)
+export function phaseLayout(match, roster, scout, setIdx, d, phase, libFor) {
+  const rot = {}; for (const z of [1, 2, 3, 4, 5, 6]) { const p = ourPlayerAt(match, roster, scout, setIdx, d, z, { libFor, forceLib: false }); rot[z] = p ? p.id : '' }
+  if (phase !== 'aanval') return rot
+  const out = {}, taken = new Set()
+  const want = id => { const r = roleOf(roster, scout, setIdx, id); const rz = +Object.keys(rot).find(z => rot[z] === id); const front = [2, 3, 4].includes(rz)
+    if (r === 'L') return rz; if (front) return r === 'B' ? 4 : r === 'M' ? 3 : (r === 'S' || r === 'H') ? 2 : rz
+    return r === 'B' ? 6 : r === 'H' ? 1 : r === 'S' ? 1 : rz }
+  const ids = Object.values(rot).filter(Boolean)
+  ids.forEach(id => { const z = want(id); if (!taken.has(z)) { out[z] = id; taken.add(z) } })
+  ids.forEach(id => { if (!Object.values(out).includes(id)) { const rz = +Object.keys(rot).find(z => rot[z] === id); const free = [rz, 1, 2, 3, 4, 5, 6].find(z => !taken.has(z)); out[free] = id; taken.add(free) } })
+  for (const z of [1, 2, 3, 4, 5, 6]) if (!out[z]) out[z] = ''
+  return out
+}

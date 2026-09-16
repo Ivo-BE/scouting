@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { POS, setWinner, matchState, playedSet } from '../lib/volley.js'
-import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, benchNext, benchStart, setterZone, distribution, ROLES, roleOf, expectedZone, autoLibFor, receives, SYSTEMS, systemOf, setterId, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
+import { ACTIONS, QUALITIES, D_TO_ZONE, SIMPLE_Q, Q_LABELS, ZONES_FOR, nextStep, serveStep, benchNext, benchStart, setterZone, distribution, ROLES, roleOf, expectedZone, autoLibFor, receives, SYSTEMS, systemOf, setterId, phaseLayout, derive, ourPlayerAt, oppPlayerAt, statsRows, rotationStats, scoutCsv, fixScout } from '../lib/scout.js'
 import { reportHtml } from './ScoutReport.js'
 import Modal from './Modal.jsx'
 
@@ -17,6 +17,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   const [modal, setModal] = useState(null)
   const [videoName, setVideoName] = useState('')
   const [bench, setBench] = useState(false)          // bankmodus: live, grote knoppen, 3-traps kwaliteit
+  const [mirror, setMirror] = useState(() => localStorage.getItem('scout:mirror') === '1')
   useEffect(() => { document.body.classList.toggle('benchmode', bench); return () => document.body.classList.remove('benchmode') }, [bench])
   const [askTo, setAskTo] = useState(null)            // na een aanval: waar kwam de bal neer? {eventId}
   const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team, sel:[zones]}
@@ -235,7 +236,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   if (bench) {
     const sorted = [...roster].sort((a, b) => (+a.nr || 99) - (+b.nr || 99))
     const zoneLabel = z => z ? `z${z} · ${[2, 3, 4].includes(z) ? 'voor' : 'achter'}` : 'bank'
-    const showZones = pending.player && (pending.act === 'aanval' || pending.act === 'blok')
+    const showZones = pending.act === 'aanval' || pending.act === 'blok'
     const modals = <>
       {askBlock && <Modal onClose={() => blockDone(askBlock.sel || [])}><h2>Geblokt — door wie?</h2><p>Tik één, twee of drie netspelers van {askBlock.team === 'us' ? teamName : match.opp}. De eerste is de hoofdblokker.</p>
         <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); const sel = askBlock.sel || []; const i = sel.indexOf(z)
@@ -257,8 +258,15 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
         <div className="bleft">
           <div className="benchhint"><span>{pending.act === 'opslag' ? `${teamName} serveert — tik de kwaliteit van de opslag` : pending.act === 'receptie' ? `${match.opp} serveert — wie ving op?` : pending.act === 'aanval' ? 'Wie viel aan, en hoe?' : pending.act === 'pas' ? 'Pas — tik de kwaliteit' : 'Rally loopt — tik wat je ziet, of het punt'}</span><span className="tip">gemist? tik gewoon wat je wél zag, of het punt · stand fout? tik op de stand</span></div>
           <div className="row acts">{ACTIONS.filter(([a]) => a !== 'pas' || tagPas).map(([a]) => <button key={a} className={pending.act === a ? 'on' : ''} onClick={() => setPending(p => ({ ...p, act: a, zone: a === 'opslag' ? 1 : p.zone, player: a === 'opslag' ? null : p.player }))}>{a}</button>)}</div>
-          <div className="bplayers">{sorted.map(p => { const on = onCourtIds.has(p.id) || p.id === libId; const role = roleOf(roster, scout, set, p.id); const z = zoneOf(p.id); const unlikely = pending.act === 'receptie' && !receives(roster, scout, set, p.id)
-            return <button key={p.id} className={(pending.player?.id === p.id ? 'on' : '') + (p.id === libId ? ' libbtn' : '') + (!on || unlikely ? ' dim' : '')} onClick={() => pickPlayer(p)}><b>{p.nr}</b><small>{p.name}{role ? ' · ' + ROLES[role] : ''}</small><span className="zone">{p.id === libId ? (libFor ? 'libero in' : 'libero') : zoneLabel(z)}</span></button> })}</div>
+          {(() => { const phase = ['pas', 'aanval', 'blok'].includes(pending.act) ? 'aanval' : 'rotatie'; const lay = phaseLayout(match, roster, scout, set, d, phase, libFor)
+            const zonesFor = pending.act ? (ZONES_FOR[pending.act] || null) : null
+            const order = mirror ? [2, 3, 4, 1, 6, 5] : [4, 3, 2, 5, 6, 1]
+            return <div className="bfield"><span className="fl">net</span><span className="fr"><button className="ghost" onClick={() => setMirror(m => { localStorage.setItem('scout:mirror', m ? '' : '1'); return !m })}>⇄ spiegel</button>{phase === 'aanval' ? <em>spelposities na de opslag</em> : <em>posities bij de opslag</em>}</span>
+              {order.map(z => { const id = lay[z]; const p = roster.find(x => x.id === id); const role = p ? roleOf(roster, scout, set, p.id) : ''; const isLib = id && id === libId; const ok = !zonesFor || zonesFor.includes(z)
+                const libForP = isLib && libFor ? roster.find(x => x.id === libFor) : null
+                return <div key={z} className={'cell' + (pending.player?.id === id && id ? ' on' : '') + (isLib ? ' lib' : '') + (ok ? '' : ' dim')} onClick={() => { if (p) setPending(pp => ({ ...pp, team: 'us', player: p, zone: z, lib: false })) }}>
+                  <small>z{z} · {['', 'I', 'II', 'III', 'IV', 'V', 'VI'][z]}</small>{p ? <><b>{p.nr}</b><span>{p.name}</span><i>{isLib ? 'Libero' + (libForP ? ` (voor ${libForP.nr} ${libForP.name})` : '') : (ROLES[role] || '')}</i></> : <b>?</b>}</div> })}
+            </div> })()}
           {showZones && <div className="bzones"><span className="hint">Vanuit zone</span>{[4, 3, 2, 5, 6, 1].map(z => <button key={z} className={pending.zone === z ? 'on' : ''} onClick={() => setPending(pp => ({ ...pp, zone: z }))}>{z}</button>)}<span className="hint">{pending.zone ? 'verwacht: ' + pending.zone : ''}</span></div>}
           <div className={'row bq' + (pending.act && (pending.zone || pending.player) ? '' : ' inactive')}>{(SIMPLE_Q[pending.act] || SIMPLE_Q.aanval).map(([lbl, q]) => <button key={q} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button>)}</div>
           <div className="bpts"><button className="us" onClick={() => point('us')}>Punt {teamName}</button><button className="them" onClick={() => point('them')}>Punt {match.opp}</button><button onClick={timeout}>Time-out</button></div>

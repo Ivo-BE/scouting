@@ -327,3 +327,14 @@
   .bench2 .hint{font-size:12px;color:var(--mute)}
   .bench2 .bq{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr))}
   .bench2 .log>div{cursor:pointer}
+
+  .bfield{background:var(--zone);padding:14px 8px 8px;border-radius:12px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:6px;min-height:0;position:relative}
+  .bfield .fl{position:absolute;top:0;left:12px;font:600 11px Barlow;color:#fff;opacity:.85}
+  .bfield .fr{position:absolute;top:-2px;right:8px;display:flex;gap:8px;align-items:center;font:600 11px Barlow;color:#fff}.bfield .fr em{font-style:normal;opacity:.85}.bfield .fr .ghost{color:#fff;padding:0 4px;font-size:11px;background:transparent;border:0}
+  .bfield .cell{background:var(--court);color:#fff;border-radius:8px;display:grid;align-content:center;text-align:center;gap:1px;padding:6px;position:relative;cursor:pointer;min-height:70px;transition:opacity .15s}
+  .bfield .cell:nth-child(-n+5):nth-child(n+3){border-bottom:2px dashed rgba(255,255,255,.7)}
+  .bfield .cell small{position:absolute;left:8px;top:5px;font:600 11px Barlow;opacity:.9}
+  .bfield .cell b{font:700 34px/1 "Barlow Condensed"}.bfield .cell span{font-size:14px}.bfield .cell i{font-style:normal;font-size:11px;opacity:.85}
+  .bfield .cell.dim{opacity:.4}.bfield .cell.on{outline:4px solid #fff;outline-offset:-4px;background:#F5A25E}.bfield .cell.lib{background:#5E8CD6}
+  @media(max-width:900px),(orientation:portrait){.bfield .cell{min-height:64px}.bfield .cell b{font-size:28px}}
+  @media(max-width:600px){.bfield .cell{min-height:56px;padding:4px}.bfield .cell b{font-size:24px}.bfield .cell i{display:none}}

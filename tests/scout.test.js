@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart, statsRows, expectedZone, autoLibFor, setterId } from '../src/lib/scout.js'
+import { derive, ourPlayerAt, oppPlayerAt, emptyScout, rotationStats, nextStep, distribution, benchNext, benchStart, statsRows, expectedZone, autoLibFor, setterId, phaseLayout } from '../src/lib/scout.js'
 
 const roster = [1, 3, 5, 7, 8, 10, 12, 14].map(n => ({ id: 'p' + n, nr: String(n), name: 'S' + n }))
 // POS-volgorde IV,III,II,V,VI,I  -> IV=1 III=3 II=5 V=7 VI=8 I=10
@@ -109,4 +109,15 @@ test('libero serveert nooit: midden op zone 1 blijft zelf staan bij eigen opslag
   const r2 = roster.map(p => ({ ...p, role: { '10': 'M', '1': 'B', '3': 'B', '5': 'S', '7': 'H', '8': 'B', '14': 'L' }[p.nr] || '' }))   // 10 (I) is midden
   assert.equal(autoLibFor(match, r2, { ...emptyScout(), serveFirst: { 0: 'us' } }, 0, derive(match, { ...emptyScout(), serveFirst: { 0: 'us' } }, 0)), '')
   assert.equal(autoLibFor(match, r2, { ...emptyScout(), serveFirst: { 0: 'them' } }, 0, derive(match, { ...emptyScout(), serveFirst: { 0: 'them' } }, 0)), 'p10')
+})
+
+test('veld per fase: passeur loopt naar 2, hoek naar 4, midden naar 3', () => {
+  // I=10(B) II=5(S) III=3(M) IV=1(B) V=7(H) VI=8(M), libero 14 voor 8
+  const r2 = roster.map(p => ({ ...p, role: { '1': 'B', '3': 'M', '5': 'S', '7': 'H', '8': 'M', '10': 'B', '14': 'L' }[p.nr] || '' }))
+  const sc = { ...emptyScout(), serveFirst: { 0: 'us' } }; const d = derive(match, sc, 0)
+  const rot = phaseLayout(match, r2, sc, 0, d, 'rotatie', 'p8'); assert.equal(rot[4], 'p1'); assert.equal(rot[6], 'p14')
+  const att = phaseLayout(match, r2, sc, 0, d, 'aanval', 'p8')
+  assert.equal(att[2], 'p5'); assert.equal(att[3], 'p3'); assert.equal(att[4], 'p1')   // voorrij per rol
+  assert.equal(att[6], 'p10'); assert.equal(att[1], 'p7')                              // hoek pipe, opposite 1
+  assert.equal(att[5], 'p14')                                                          // libero blijft achter
 })
