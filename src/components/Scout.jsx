@@ -90,6 +90,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   function setTo(zone) { setScout(s => ({ ...s, events: s.events.map(e => e.id === askTo ? { ...e, to: zone } : e) })); setAskTo(null) }
   function openReport() { const win = window.open('', '_blank'); if (!win) { flash('Sta pop-ups toe voor het rapport'); return } win.document.write(reportHtml(match, scout, roster, teamName)); win.document.close() }
   function pointAfter(team, dd) {
+    if (setWinner({ us: String(dd.us), them: String(dd.them) }, set)) { flash(`Set ${set + 1} is beslist (${dd.us}-${dd.them}) — sluit de set af of maak het laatste punt ongedaan`); return }
     push({ type: 'point', team, us: dd.us + (team === 'us'), them: dd.them + (team === 'them') })
     const serveNext = dd.serve === team ? team : team   // winnaar serveert altijd
     setPending(smart ? { ...startStep(serveNext), lib: false } : { team: null, act: null, zone: null, lib: false })
@@ -110,6 +111,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
     const txt = prompt(`Juiste stand (wij-zij), nu ${d.us}-${d.them}:`, `${d.us}-${d.them}`); if (!txt) return
     const m = txt.match(/^\s*(\d+)\s*[-–: ]\s*(\d+)\s*$/); if (!m) { flash('Geef de stand als 12-10'); return }
     const du = +m[1] - d.us, dt = +m[2] - d.them; if (du < 0 || dt < 0) { flash('Terugtellen doe je met Ongedaan'); return }
+    const t = set === 4 ? 15 : 25; const a = +m[1], b = +m[2]; if (Math.max(a, b) > t && Math.abs(a - b) > 2) { flash(`Onmogelijke stand: na ${t} wint de ploeg met 2 punten verschil`); return }
     let dd = d; const add = []
     for (let i = 0; i < du; i++) add.push('us'); for (let i = 0; i < dt; i++) add.push('them')
     // wissel af zodat de opslagwissel realistisch blijft; daarna kun je met ⇄ opslag corrigeren

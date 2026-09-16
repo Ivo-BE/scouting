@@ -16,7 +16,7 @@ export default function SetCard({ i, st, match, roster, active, update, onNext, 
   const Score = ({ f, ph }) => <span className="sc">
     <button onClick={() => act('punt ' + (f === 'us' ? 'wij' : 'zij'), s => ({ ...s, [f]: String(Math.max(0, (+s[f] || 0) - 1)) }))}>−</button>
     <input value={st[f]} placeholder={ph} inputMode="numeric" onChange={e => update({ ...st, [f]: e.target.value.replace(/\D/g, '') })} />
-    <button onClick={() => act('punt ' + (f === 'us' ? 'wij' : 'zij'), s => ({ ...s, [f]: String((+s[f] || 0) + 1) }))}>+</button></span>
+    <button disabled={!!winner} title={winner ? 'Set is beslist' : ''} onClick={() => act('punt ' + (f === 'us' ? 'wij' : 'zij'), s => ({ ...s, [f]: String((+s[f] || 0) + 1) }))}>+</button></span>
 
   return <div className={'set' + (active ? ' active' : '')}>
     <div className="top"><h2>Set {i + 1}</h2><span className="scorebox"><Score f="us" ph="wij" /><span className="sep">–</span><Score f="them" ph="zij" /></span></div>
