@@ -288,7 +288,8 @@ Uit deze gegevens tekent het rapport per speelster een veldje met pijlen: van wa
 
 De knop **Bankmodus** maakt van Scout één scherm voor live gebruik op de bank, bijvoorbeeld door een speelster die niet speelt:
 
-- Bovenaan groot de **stand**, de set en wie serveert. Tik op de stand om ze te corrigeren als je punten gemist hebt: de app vult de ontbrekende punten aan.
+- Eén scherm dat op een tablet volledig in beeld past: bovenbalk met set, rotatie, setstand en de **stand** groot (pijltje = wie serveert; tik op de stand om te corrigeren), links het werkvlak, rechts de rallybalk, het log en side-out per rotatie van deze set.
+- Geen veld: je kiest de speelster op een **grote naamknop** met rugnummer, rol en huidige zone ("z6 · achter"). Bankspeelsters staan gedimd, de libero gestippeld. Bij aanval en blok verschijnt een rij met de zes zones waarin de verwachte al oplicht; klopt ze niet, tik één keer op de juiste.
 - Daaronder één **vraag** die meebeweegt met het spel: "Dames H serveert — wie ving op?", "Wie viel aan, en hoe?", "Rally loopt — tik wat je ziet, of het punt".
 - Alleen de **eigen ploeg**: hun opslag hoef je niet te taggen, de app begint bij jouw receptie. Rugnummers van de tegenstander zijn niet nodig.
 - Kwaliteit in **woorden** (goed / matig / fout; punt / in spel / geblokt / fout). De app vertaalt ze naar de standaardcodes.
@@ -402,6 +403,7 @@ Speelt iemand deze set op een andere plek (invalster), gebruik dan **Rollen deze
 
 | Datum | Wat |
 |---|---|
+| 16 sep 2026 | Bankmodus opnieuw ontworpen voor tablet: alles in beeld, naamknoppen met rol en zone, zone-correctie bij aanval/blok, time-out in het log |
 | 16 sep 2026 | Scout toont alleen gespeelde sets; rollenvak per set inklapbaar; setstanden in de wedstrijdkeuze van Scout |
 | 16 sep 2026 | Handleiding in de app; wedstrijd vergrendelen na uitslag; scouting volgt de setstanden uit de wedstrijd; geen punten na setwinst |
 | 16 sep 2026 | Rollen en systeem per set in Wedstrijd (Passeur, Midden, Hoek, Opposite, Libero); Scout neemt ze over |

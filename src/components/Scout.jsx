@@ -17,6 +17,7 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
   const [modal, setModal] = useState(null)
   const [videoName, setVideoName] = useState('')
   const [bench, setBench] = useState(false)          // bankmodus: live, grote knoppen, 3-traps kwaliteit
+  useEffect(() => { document.body.classList.toggle('benchmode', bench); return () => document.body.classList.remove('benchmode') }, [bench])
   const [askTo, setAskTo] = useState(null)            // na een aanval: waar kwam de bal neer? {eventId}
   const [askBlock, setAskBlock] = useState(null)      // aanval geblokt: door wie? {team, sel:[zones]}
   const [askCo, setAskCo] = useState(null)            // medeblokkers na een eigen blok-tag: {eventId, team, zone, sel:[zones]}
@@ -219,11 +220,60 @@ export default function Scout({ matches, roster, teamName, onSaveScout, onUpdate
       <div className="rnet" />
     </div>
   </div>
+  const setRot = (() => { const rows = Array.from({ length: 6 }, (_, r) => ({ rot: r, recv: 0, so: 0, serve: 0, brk: 0 }))
+    let serve = scout.serveFirst[set] || 'us', rotUs = 0
+    scout.events.filter(e => e.set === set).forEach(e => { if (e.type === 'adj') { if (e.what === 'serve') serve = serve === 'us' ? 'them' : 'us'; if (e.what === 'rotUs') rotUs = (rotUs + 1) % 6; return } if (e.type !== 'point') return
+      const row = rows[rotUs]; if (serve === 'them') { row.recv++; if (e.team === 'us') row.so++ } else { row.serve++; if (e.team === 'us') row.brk++ }
+      if (e.team === 'us' && serve === 'them') { serve = 'us'; rotUs = (rotUs + 1) % 6 } else if (e.team === 'them' && serve === 'us') serve = 'them' })
+    return rows.filter(r => r.recv || r.serve) })()
+  const timeout = () => { push({ type: 'adj', what: 'timeout', team: 'us', us: d.us, them: d.them }); flash(`Time-out ${teamName} bij ${d.us}-${d.them}`) }
   const Court = ({ team }) => <div className="court"><div className="floor">{POS.map((p, dd) => { const z = D_TO_ZONE[dd]; const pl = playerAt(team, z)
     return <div key={dd} className={'pos scell' + (pending.zone === z && pending.team === team ? ' sel' : '') + (pl?.lib ? ' lib' : '')} onClick={() => setPending(pp => ({ ...pp, team, zone: z }))}><small>{p[0]} · z{z}</small><b>{pl ? (pl.nr || pl.name) : '?'}</b></div> })}</div></div>
   const ev = scout.events.filter(e => e.set === set).slice(-80).reverse()
-  const log = e => e.type === 'point' ? `Punt ${e.team === 'us' ? teamName : match.opp} → ${e.us}-${e.them}` : e.type === 'adj' ? `Aanpassing: ${e.what}` : `${e.team === 'us' ? teamName : match.opp} · ${e.act} z${e.zone} ${e.q} · #${e.playerNr || '?'}${e.lib ? ' (L)' : ''}${e.act === 'blok' && e.blockers > 1 ? ` (${e.blockers}-blok met #${(e.assists || []).map(a => a.nr).join(', #')})` : ''}`
+  const log = e => e.type === 'point' ? `Punt ${e.team === 'us' ? teamName : match.opp} → ${e.us}-${e.them}` : e.type === 'adj' ? (e.what === 'timeout' ? `Time-out ${teamName} bij ${e.us ?? ''}${e.us != null ? '-' + e.them : ''}` : `Aanpassing: ${e.what}`) : `${e.team === 'us' ? teamName : match.opp} · ${e.act} z${e.zone} ${e.q} · #${e.playerNr || '?'}${e.lib ? ' (L)' : ''}${e.act === 'blok' && e.blockers > 1 ? ` (${e.blockers}-blok met #${(e.assists || []).map(a => a.nr).join(', #')})` : ''}`
 
+  if (bench) {
+    const sorted = [...roster].sort((a, b) => (+a.nr || 99) - (+b.nr || 99))
+    const zoneLabel = z => z ? `z${z} · ${[2, 3, 4].includes(z) ? 'voor' : 'achter'}` : 'bank'
+    const showZones = pending.player && (pending.act === 'aanval' || pending.act === 'blok')
+    const modals = <>
+      {askBlock && <Modal onClose={() => blockDone(askBlock.sel || [])}><h2>Geblokt — door wie?</h2><p>Tik één, twee of drie netspelers van {askBlock.team === 'us' ? teamName : match.opp}. De eerste is de hoofdblokker.</p>
+        <div className="choices">{[4, 3, 2].map(z => { const pl = playerAt(askBlock.team, z); const sel = askBlock.sel || []; const i = sel.indexOf(z)
+          return <button key={z} className={i >= 0 ? 'on' : ''} onClick={() => setAskBlock(a => ({ ...a, sel: i >= 0 ? sel.filter(x => x !== z) : [...sel, z] }))}>{i >= 0 ? (i === 0 ? '① ' : i === 1 ? '② ' : '③ ') : ''}z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
+        <div className="row"><button className="primary" onClick={() => blockDone(askBlock.sel || [])}>Klaar</button><button className="ghost" onClick={() => blockDone([])}>Weet ik niet — alleen het punt</button></div></Modal>}
+      {askCo && <Modal onClose={() => coDone(askCo.sel)}><h2>Medeblokkers?</h2>
+        <div className="choices">{[4, 3, 2].filter(z => z !== askCo.zone).map(z => { const pl = playerAt(askCo.team, z); const on = askCo.sel.includes(z)
+          return <button key={z} className={on ? 'on' : ''} onClick={() => setAskCo(a => ({ ...a, sel: on ? a.sel.filter(x => x !== z) : [...a.sel, z] }))}>z{z} · {pl ? (pl.nr + ' ' + (pl.name || '')) : '?'}</button> })}</div>
+        <div className="row"><button className="primary" onClick={() => coDone(askCo.sel)}>{askCo.sel.length ? `Klaar (${askCo.sel.length + 1}-blok)` : 'Geen — solo blok'}</button></div></Modal>}
+    </>
+    return <div className="bench2">
+      <div className="btop">
+        <div className="bl"><span className="bmeta">Set {set + 1} · rotatie {d.rotUs} · <b>{setsWon[0]}–{setsWon[1]}</b> in sets{target ? ` · vastgelegd ${target.us}-${target.them}` : ''}</span>
+          <button className="ghost" onClick={() => setBench(false)} title="Terug naar de volledige Scout-weergave">⇱ volledig</button></div>
+        <div className="bsc"><small>{teamName}</small><b onClick={fixScore} title="Tik om de stand te corrigeren">{d.us}</b><span className={'arr ' + (d.serve === 'us' ? 'l' : 'r')}>{d.serve === 'us' ? '◀' : '▶'}</span><b onClick={fixScore} title="Tik om de stand te corrigeren">{d.them}</b><small>{match.opp}</small></div>
+        <div className="br"><button onClick={undo} disabled={!scout.events.filter(e => e.set === set).length}>↶ Ongedaan</button><button onClick={sub}>Wissel…</button><button className={setDone ? 'primary' : ''} onClick={closeSet}>Set afsluiten</button></div>
+      </div>
+      <div className="bmain">
+        <div className="bleft">
+          <div className="benchhint"><span>{pending.act === 'opslag' ? `${teamName} serveert — tik de kwaliteit van de opslag` : pending.act === 'receptie' ? `${match.opp} serveert — wie ving op?` : pending.act === 'aanval' ? 'Wie viel aan, en hoe?' : pending.act === 'pas' ? 'Pas — tik de kwaliteit' : 'Rally loopt — tik wat je ziet, of het punt'}</span><span className="tip">gemist? tik gewoon wat je wél zag, of het punt · stand fout? tik op de stand</span></div>
+          <div className="row acts">{ACTIONS.filter(([a]) => a !== 'pas' || tagPas).map(([a]) => <button key={a} className={pending.act === a ? 'on' : ''} onClick={() => setPending(p => ({ ...p, act: a, zone: a === 'opslag' ? 1 : p.zone, player: a === 'opslag' ? null : p.player }))}>{a}</button>)}</div>
+          <div className="bplayers">{sorted.map(p => { const on = onCourtIds.has(p.id) || p.id === libId; const role = roleOf(roster, scout, set, p.id); const z = zoneOf(p.id); const unlikely = pending.act === 'receptie' && !receives(roster, scout, set, p.id)
+            return <button key={p.id} className={(pending.player?.id === p.id ? 'on' : '') + (p.id === libId ? ' libbtn' : '') + (!on || unlikely ? ' dim' : '')} onClick={() => pickPlayer(p)}><b>{p.nr}</b><small>{p.name}{role ? ' · ' + ROLES[role] : ''}</small><span className="zone">{p.id === libId ? (libFor ? 'libero in' : 'libero') : zoneLabel(z)}</span></button> })}</div>
+          {showZones && <div className="bzones"><span className="hint">Vanuit zone</span>{[4, 3, 2, 5, 6, 1].map(z => <button key={z} className={pending.zone === z ? 'on' : ''} onClick={() => setPending(pp => ({ ...pp, zone: z }))}>{z}</button>)}<span className="hint">{pending.zone ? 'verwacht: ' + pending.zone : ''}</span></div>}
+          <div className={'row bq' + (pending.act && (pending.zone || pending.player) ? '' : ' inactive')}>{(SIMPLE_Q[pending.act] || SIMPLE_Q.aanval).map(([lbl, q]) => <button key={q} onClick={() => tag(q)}><span className="sym">{q}</span><small>{lbl}</small></button>)}</div>
+          <div className="bpts"><button className="us" onClick={() => point('us')}>Punt {teamName}</button><button className="them" onClick={() => point('them')}>Punt {match.opp}</button><button onClick={timeout}>Time-out</button></div>
+        </div>
+        <div className="bside">
+          <div className="panel"><RallyStrip /></div>
+          <div className="panel blog"><h3>Log <span className="hint">tik = verwijder</span></h3>
+            <div className="log">{ev.map(e => <div key={e.id} className={e.type === 'point' ? 'rally' : ''} onClick={() => setScout(s => ({ ...s, events: s.events.filter(x => x.id !== e.id) }))}><span className="t">{fmtT(e.t)}</span>{log(e)}</div>)}</div></div>
+          {setRot.length > 0 && <div className="panel bmini"><h3>Deze set · side-out per rotatie</h3><table className="stats"><thead><tr><th>Rot</th><th>Ontv</th><th>SO%</th><th>Serv</th><th>Br%</th></tr></thead>
+            <tbody>{setRot.map(r => <tr key={r.rot}><td>R{r.rot + 1}</td><td>{r.recv}</td><td>{r.recv ? Math.round(100 * r.so / r.recv) + '%' : ''}</td><td>{r.serve}</td><td>{r.serve ? Math.round(100 * r.brk / r.serve) + '%' : ''}</td></tr>)}</tbody></table></div>}
+        </div>
+      </div>
+      {modals}
+    </div>
+  }
   return <div className={'scout' + (bench ? ' bench' : '')}>
     <section className="panel scout-left">
       <div className="row wrap">
